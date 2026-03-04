@@ -2,8 +2,8 @@ import axios from 'axios';
 import { getSecureKey } from './storage';
 
 export async function findCompanyDomain(company) {
-    const key = await getSecureKey('SERPER_API_KEY');
-    if (!key) throw new Error('SERPER_API_KEY not configured');
+    const key = process.env.EXPO_PUBLIC_SERPER_API_KEY;
+    if (!key) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
 
     const res = await axios.post(
         'https://google.serper.dev/search',
@@ -27,8 +27,8 @@ export async function findCompanyDomain(company) {
 }
 
 export async function searchHRContacts(company, domain) {
-    const key = await getSecureKey('SERPER_API_KEY');
-    if (!key) throw new Error('SERPER_API_KEY not configured');
+    const key = process.env.EXPO_PUBLIC_SERPER_API_KEY;
+    if (!key) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
 
     // Two focused queries instead of one diluted one
     const [peopleRes, patternRes] = await Promise.all([

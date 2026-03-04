@@ -27,10 +27,10 @@ export async function deleteSecureKey(key) {
     }
 }
 
-// Check if all required API keys are configured
+// Check if all required API keys are configured via environment variables
 export async function areKeysConfigured() {
-    const serper = await getSecureKey('SERPER_API_KEY');
-    const openrouter = await getSecureKey('OPENROUTER_API_KEY');
+    const serper = process.env.EXPO_PUBLIC_SERPER_API_KEY;
+    const openrouter = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
     return !!(serper && openrouter);
 }
 
@@ -57,3 +57,105 @@ export async function saveSettings(settings) {
 }
 
 export { DEFAULT_SETTINGS };
+
+// === Email Templates (AsyncStorage) ===
+const TEMPLATES_KEY = 'email_templates';
+const DEFAULT_TEMPLATE_KEY = 'default_template_id';
+const MAX_TEMPLATES = 5;
+
+// Default templates that ship with the app
+const STARTER_TEMPLATES = [
+    {
+        id: 'tpl_cold_outreach',
+        name: 'Cold Outreach',
+        subject: 'Interested in Opportunities at {{company}}',
+        body: 'Hi {{name}},\n\nI came across your profile and noticed you work in {{role}} at {{company}}. I am very interested in exploring opportunities there.\n\nI would love to connect and learn more about any openings that match my background.\n\nBest regards',
+    },
+    {
+        id: 'tpl_follow_up',
+        name: 'Follow Up',
+        subject: 'Following Up \u2014 {{company}} Opportunities',
+        body: 'Hi {{name}},\n\nI wanted to follow up on my previous email regarding potential opportunities at {{company}}.\n\nI am still very interested and would appreciate any guidance you can offer.\n\nThank you',
+    },
+];
+
+
+/**
+ * Get all saved email templates. Returns starter templates on first use.
+ */
+export async function getEmailTemplates() {
+    try {
+        const raw = await AsyncStorage.getItem(TEMPLATES_KEY);
+        if (!raw) {
+            // First time — save and return starter templates
+            await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(STARTER_TEMPLATES));
+            return STARTER_TEMPLATES;
+        }
+        return JSON.parse(raw);
+    } catch {
+        return STARTER_TEMPLATES;
+    }
+}
+
+/**
+ * Save or update a template. Enforces max 5 limit.
+ */
+export async function saveEmailTemplate(template) {
+    const templates = await getEmailTemplates();
+
+    const existingIndex = templates.findIndex((t) => t.id === template.id);
+
+    if (existingIndex >= 0) {
+        // Update existing
+        templates[existingIndex] = { ...templates[existingIndex], ...template };
+    } else {
+        // Add new
+        if (templates.length >= MAX_TEMPLATES) {
+            throw new Error(`Maximum ${MAX_TEMPLATES} templates allowed. Delete one first.`);
+        }
+        templates.push({
+            ...template,
+            id: template.id || `tpl_${Date.now()}`,
+        });
+    }
+
+    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates));
+    return templates;
+}
+
+/**
+ * Delete a template by ID
+ */
+export async function deleteEmailTemplate(id) {
+    const templates = await getEmailTemplates();
+    const filtered = templates.filter((t) => t.id !== id);
+    await AsyncStorage.setItem(TEMPLATES_KEY, JSON.stringify(filtered));
+    return filtered;
+}
+
+/**
+ * Set the default template ID (pre-selected in picker)
+ */
+export async function setDefaultTemplate(id) {
+    await AsyncStorage.setItem(DEFAULT_TEMPLATE_KEY, id);
+}
+
+/**
+ * Get the default template ID
+ */
+export async function getDefaultTemplateId() {
+    return await AsyncStorage.getItem(DEFAULT_TEMPLATE_KEY);
+}
+
+/**
+ * Replace template variables with actual contact data
+ */
+export function fillTemplate(text, { name, company, role, email }) {
+    if (!text) return '';
+    return text
+        .replace(/\{\{name\}\}/gi, name || '')
+        .replace(/\{\{company\}\}/gi, company || '')
+        .replace(/\{\{role\}\}/gi, role || '')
+        .replace(/\{\{email\}\}/gi, email || '');
+}
+

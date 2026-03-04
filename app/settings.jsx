@@ -14,54 +14,76 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
-import { getSecureKey, saveSecureKey, loadSettings, saveSettings } from '../services/storage';
+import { loadSettings, saveSettings } from '../services/storage';
+import { useGoogleAuth, exchangeCodeForTokens, getAuthState, signOut as googleSignOut } from '../services/googleAuth';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
-
-const API_KEYS = [
-    { key: 'SERPER_API_KEY', label: 'Serper API Key', desc: 'Google Search', required: true },
-    { key: 'OPENROUTER_API_KEY', label: 'OpenRouter API Key', desc: 'AI Extraction', required: true },
-    { key: 'EMAILJS_SERVICE_ID', label: 'EmailJS Service ID', desc: 'Email Sending', required: false },
-    { key: 'EMAILJS_TEMPLATE_ID', label: 'EmailJS Template ID', desc: 'Email Template', required: false },
-    { key: 'EMAILJS_PUBLIC_KEY', label: 'EmailJS Public Key', desc: 'Email Auth', required: false },
-    { key: 'EMAILJS_PRIVATE_KEY', label: 'EmailJS Private Key', desc: 'For non-browser apps', required: false },
-];
+import EmailEditor from '../components/EmailEditor';
 
 export default function SettingsScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const { settings } = useSettings();
-    const [keys, setKeys] = useState({});
-    const [visibility, setVisibility] = useState({});
     const [modelName, setModelName] = useState('google/gemini-2.5-flash-lite');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null });
+    const [signingIn, setSigningIn] = useState(false);
+
+    // Google Auth hook
+    const { request, response, promptAsync } = useGoogleAuth();
 
     useEffect(() => {
         (async () => {
-            const loaded = {};
-            for (const item of API_KEYS) {
-                const val = await getSecureKey(item.key);
-                loaded[item.key] = val || '';
-            }
-            setKeys(loaded);
             const s = await loadSettings();
             setModelName(s.openrouterModel || 'google/gemini-2.5-flash-lite');
+            const auth = await getAuthState();
+            setGoogleState(auth);
             setLoading(false);
         })();
     }, []);
 
-    const toggleVisibility = (key) => {
-        setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+    // Handle Google OAuth response
+    useEffect(() => {
+        if (response?.type === 'success' && response.params?.code) {
+            handleGoogleCode(response.params.code, request?.codeVerifier);
+        } else if (response?.type === 'error') {
+            setSigningIn(false);
+            showToast('error', 'Sign-In Failed', response.error?.message || 'Could not sign in with Google.');
+        }
+    }, [response]);
+
+    const handleGoogleCode = async (code, codeVerifier) => {
+        try {
+            const result = await exchangeCodeForTokens(code, codeVerifier);
+            setGoogleState({ isSignedIn: true, userEmail: result.userEmail, userName: result.userName });
+            showToast('success', 'Signed In!', `Connected as ${result.userEmail}`);
+        } catch (err) {
+            showToast('error', 'Sign-In Failed', err.message);
+        } finally {
+            setSigningIn(false);
+        }
     };
 
-    const handleSaveKeys = async () => {
+    const handleGoogleSignIn = async () => {
+        setSigningIn(true);
+        try {
+            await promptAsync();
+        } catch (err) {
+            setSigningIn(false);
+            showToast('error', 'Error', 'Could not open Google sign-in.');
+        }
+    };
+
+    const handleSignOut = async () => {
+        await googleSignOut();
+        setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
+        showToast('info', 'Signed Out', 'Google account disconnected.');
+    };
+
+    const handleSaveSettings = async () => {
         setSaving(true);
         try {
-            for (const item of API_KEYS) {
-                const val = keys[item.key]?.trim();
-                if (val) await saveSecureKey(item.key, val);
-            }
             const currentSettings = await loadSettings();
             await saveSettings({ ...currentSettings, openrouterModel: modelName.trim() || 'google/gemini-2.5-flash-lite' });
             showToast('success', 'Settings Saved', 'Your settings have been updated.');
@@ -87,16 +109,60 @@ export default function SettingsScreen() {
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                    {/* Info */}
-                    <View style={[styles.infoBox, { backgroundColor: theme.accentLight }]}>
-                        <Text style={styles.infoIcon}>💡</Text>
-                        <Text style={[styles.infoText, { color: theme.accent }]}>
-                            Email templates are managed at emailjs.com dashboard.
-                        </Text>
+                    {/* ─── Email Sending (Google) ─── */}
+                    <Text style={[styles.section, { color: theme.text }]}>📧 Email Sending</Text>
+
+                    <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                        <View style={styles.keyHeader}>
+                            <Text style={[styles.keyLabel, { color: theme.text }]}>Google Account</Text>
+                            <Text style={[styles.keyBadge, { color: googleState.isSignedIn ? '#4caf50' : theme.textMuted }]}>
+                                {googleState.isSignedIn ? '● Connected' : '○ Not connected'}
+                            </Text>
+                        </View>
+
+                        {googleState.isSignedIn ? (
+                            <View>
+                                <Text style={[styles.connectedEmail, { color: theme.textSecondary }]}>
+                                    {googleState.userEmail}
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.signOutBtn, { borderColor: '#ef5350' }]}
+                                    onPress={handleSignOut}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={[styles.signOutText, { color: '#ef5350' }]}>Sign Out</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View>
+                                <Text style={[styles.keyDesc, { color: theme.textMuted }]}>
+                                    Sign in to send emails from your Gmail
+                                </Text>
+                                <TouchableOpacity
+                                    style={[styles.googleBtn, signingIn && { opacity: 0.7 }]}
+                                    onPress={handleGoogleSignIn}
+                                    disabled={signingIn || !request}
+                                    activeOpacity={0.8}
+                                >
+                                    {signingIn ? (
+                                        <ActivityIndicator size="small" color="#333" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.googleBtnIcon}>G</Text>
+                                            <Text style={styles.googleBtnText}>Sign in with Google</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </View>
 
-                    {/* AI Model */}
-                    <Text style={[styles.section, { color: theme.text }]}>AI Model</Text>
+                    {/* ─── Email Templates ─── */}
+                    <Text style={[styles.section, { color: theme.text }]}>📝 Email Templates</Text>
+                    <EmailEditor mode="manage" />
+
+                    {/* ─── AI Model ─── */}
+                    <Text style={[styles.section, { color: theme.text, marginTop: 24 }]}>🤖 AI Model</Text>
                     <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                         <View style={styles.keyHeader}>
                             <Text style={[styles.keyLabel, { color: theme.text }]}>OpenRouter Model</Text>
@@ -113,48 +179,10 @@ export default function SettingsScreen() {
                         />
                     </View>
 
-                    {/* API Keys */}
-                    <Text style={[styles.section, { color: theme.text }]}>API Keys</Text>
-
-                    {loading ? (
-                        <ActivityIndicator color={theme.accent} style={{ marginTop: 20 }} />
-                    ) : (
-                        API_KEYS.map((item) => (
-                            <View key={item.key} style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                                <View style={styles.keyHeader}>
-                                    <Text style={[styles.keyLabel, { color: theme.text }]}>{item.label}</Text>
-                                    <Text style={[styles.keyBadge, { color: theme.textMuted }]}>
-                                        {item.required ? 'Required' : 'Optional'}
-                                    </Text>
-                                </View>
-                                <Text style={[styles.keyDesc, { color: theme.textMuted }]}>{item.desc}</Text>
-                                <View style={styles.keyInputRow}>
-                                    <TextInput
-                                        style={[styles.keyInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
-                                        value={keys[item.key] || ''}
-                                        onChangeText={(val) => setKeys((prev) => ({ ...prev, [item.key]: val }))}
-                                        placeholder={item.label + '...'}
-                                        placeholderTextColor={theme.textMuted}
-                                        secureTextEntry={!visibility[item.key]}
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                    />
-                                    <TouchableOpacity
-                                        style={[styles.viewBtn, { backgroundColor: theme.bgTertiary }]}
-                                        onPress={() => toggleVisibility(item.key)}
-                                        activeOpacity={0.7}
-                                    >
-                                        <Text style={styles.viewIcon}>{visibility[item.key] ? '🙈' : '👁️'}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))
-                    )}
-
                     {/* Save */}
                     <TouchableOpacity
                         style={[styles.saveBtn, { backgroundColor: theme.accent }, saving && { opacity: 0.7 }]}
-                        onPress={handleSaveKeys}
+                        onPress={handleSaveSettings}
                         disabled={saving}
                         activeOpacity={0.8}
                     >
@@ -187,17 +215,6 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: '700' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
     section: { fontSize: 16, fontWeight: '700', marginBottom: 12, marginTop: 4 },
-    infoBox: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        borderRadius: 10,
-        padding: 12,
-        marginTop: 8,
-        marginBottom: 24,
-        gap: 8,
-    },
-    infoIcon: { fontSize: 14 },
-    infoText: { fontSize: 13, flex: 1, lineHeight: 18 },
     keyCard: { borderRadius: 12, borderWidth: 1, padding: 14, marginBottom: 12 },
     keyHeader: {
         flexDirection: 'row',
@@ -227,4 +244,29 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+    // Google Sign-In
+    googleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        paddingVertical: 12,
+        gap: 10,
+        marginTop: 8,
+    },
+    googleBtnIcon: { fontSize: 18, fontWeight: '700', color: '#4285F4' },
+    googleBtnText: { fontSize: 15, fontWeight: '600', color: '#333' },
+    connectedEmail: { fontSize: 14, marginTop: 4 },
+    signOutBtn: {
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingVertical: 8,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    signOutText: { fontSize: 13, fontWeight: '600' },
 });

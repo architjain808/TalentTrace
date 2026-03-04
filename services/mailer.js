@@ -1,50 +1,55 @@
-import axios from 'axios';
-import { getSecureKey } from './storage';
+import { getAccessToken, getAuthState } from './googleAuth';
+import { sendGmail } from './gmailSender';
 
-export async function sendColdEmail({ toEmail, toName, company, role }) {
-    const serviceId = await getSecureKey('EMAILJS_SERVICE_ID');
-    const templateId = await getSecureKey('EMAILJS_TEMPLATE_ID');
-    const publicKey = await getSecureKey('EMAILJS_PUBLIC_KEY');
-    const privateKey = await getSecureKey('EMAILJS_PRIVATE_KEY');
+/**
+ * Send a cold email to an HR contact via Gmail API
+ * @param {Object} params
+ * @param {string} params.toEmail - Recipient email
+ * @param {string} params.toName - Recipient name
+ * @param {string} params.company - Company name
+ * @param {string} params.role - Contact's role
+ * @param {string} params.subject - Email subject (with variables already replaced)
+ * @param {string} params.body - Email body (with variables already replaced)
+ */
+export async function sendColdEmail({ toEmail, toName, company, role, subject, body }) {
+    const auth = await getAuthState();
 
-    if (!serviceId || !templateId || !publicKey) {
-        throw new Error(
-            'EmailJS not configured. Go to Settings → API Keys to set up email sending.'
-        );
+    if (!auth.isSignedIn) {
+        throw new Error('Please sign in with Google to send emails. Go to Settings → Email Sending.');
     }
 
-    // Send via EmailJS — template variables are handled by the EmailJS template
-    const payload = {
-        service_id: serviceId,
-        template_id: templateId,
-        user_id: publicKey,
-        template_params: {
-            to_email: toEmail,
-            to_name: toName || '',
-            company_name: company || '',
-            company: company || '',
-            role: role || '',
-        },
-    };
-    // Add private key if configured (required when 'Use Private Key' is enabled)
-    if (privateKey) payload.accessToken = privateKey;
+    if (!subject || !body) {
+        throw new Error('Email subject and body are required. Please select a template or write your email.');
+    }
 
-    await axios.post('https://api.emailjs.com/api/v1.0/email/send', payload);
+    const accessToken = await getAccessToken();
 
-    return { status: 'sent' };
+    return sendGmail({
+        accessToken,
+        to: toEmail,
+        subject,
+        body,
+        fromEmail: auth.userEmail,
+        fromName: auth.userName,
+    });
 }
 
-export async function sendBulkEmails(contacts, company) {
+/**
+ * Send emails to multiple contacts
+ */
+export async function sendBulkEmails(contacts, company, { subject, body }) {
     const results = [];
     for (const contact of contacts) {
         try {
-            const { status } = await sendColdEmail({
+            const result = await sendColdEmail({
                 toEmail: contact.email,
                 toName: contact.name,
                 company,
                 role: contact.role,
+                subject,
+                body,
             });
-            results.push({ ...contact, sent: true, status });
+            results.push({ ...contact, sent: true, status: result.status });
         } catch (err) {
             results.push({ ...contact, sent: false, error: err.message });
         }

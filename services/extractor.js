@@ -6,8 +6,8 @@ import {
 } from '../constants/prompts';
 
 export async function extractWithAI(company, domain, searchSnippets) {
-    const key = await getSecureKey('OPENROUTER_API_KEY');
-    if (!key) throw new Error('OPENROUTER_API_KEY not configured');
+    const key = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
+    if (!key) throw new Error('EXPO_PUBLIC_OPENROUTER_API_KEY not configured in .env');
 
     const settings = await loadSettings();
     const model = settings.openrouterModel || 'google/gemini-2.5-flash-lite';

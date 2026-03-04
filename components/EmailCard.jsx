@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { useTheme } from '../constants/theme';
+import TemplatePicker from './TemplatePicker';
+import EmailEditor from './EmailEditor';
 
 const CONFIDENCE_CONFIG = {
     high: { emoji: '🟢', label: 'High', desc: 'Email found in search results' },
@@ -13,8 +15,39 @@ export default function EmailCard({ contact, onSend, company }) {
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
     const [sendError, setSendError] = useState(null);
+    const [showPicker, setShowPicker] = useState(false);
+    const [showEditor, setShowEditor] = useState(false);
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
 
-    const handleSend = async () => {
+    const contactData = {
+        name: contact.name,
+        company: company,
+        role: contact.role,
+        email: contact.email,
+    };
+
+    const handleSendPress = () => {
+        setSendError(null);
+        setShowPicker(true);
+    };
+
+    const handleTemplateSelect = (template) => {
+        setSubject(template.subject);
+        setBody(template.body);
+        setShowPicker(false);
+        setShowEditor(true);
+    };
+
+    const handleBlank = () => {
+        setSubject('');
+        setBody('');
+        setShowPicker(false);
+        setShowEditor(true);
+    };
+
+    const handleFinalSend = async () => {
+        if (!subject.trim() || !body.trim()) return;
         setSending(true);
         setSendError(null);
         try {
@@ -23,8 +56,11 @@ export default function EmailCard({ contact, onSend, company }) {
                 toName: contact.name,
                 company,
                 role: contact.role,
+                subject,
+                body,
             });
             setSent(true);
+            setShowEditor(false);
         } catch (err) {
             setSendError(err.message || 'Send failed');
         } finally {
@@ -103,14 +139,29 @@ export default function EmailCard({ contact, onSend, company }) {
                 </View>
             )}
 
+            {/* Inline Email Editor (visible after template selection) */}
+            {showEditor && (
+                <View style={styles.editorSection}>
+                    <EmailEditor
+                        mode="compose"
+                        initialSubject={subject}
+                        initialBody={body}
+                        contactData={contactData}
+                        onSubjectChange={setSubject}
+                        onBodyChange={setBody}
+                    />
+                </View>
+            )}
+
+            {/* Send / Confirm Button */}
             <TouchableOpacity
                 style={[
                     styles.sendBtn,
                     { backgroundColor: theme.accent },
                     sent && { backgroundColor: theme.success },
-                    isInvalid && { backgroundColor: theme.textMuted, opacity: 0.6 },
+                    isInvalid && !showEditor && { backgroundColor: theme.textMuted, opacity: 0.6 },
                 ]}
-                onPress={handleSend}
+                onPress={showEditor ? handleFinalSend : handleSendPress}
                 disabled={sending || sent || !contact.email}
                 activeOpacity={0.8}
             >
@@ -121,10 +172,29 @@ export default function EmailCard({ contact, onSend, company }) {
                     </View>
                 ) : (
                     <Text style={styles.sendBtnText}>
-                        {sent ? '✓ Sent' : isInvalid ? '⚠ Send Anyway' : 'Send Email'}
+                        {sent ? '✓ Sent' : showEditor ? '📨 Send Now' : isInvalid ? '⚠ Send Anyway' : '📧 Send Email'}
                     </Text>
                 )}
             </TouchableOpacity>
+
+            {showEditor && (
+                <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setShowEditor(false)}
+                    activeOpacity={0.7}
+                >
+                    <Text style={[styles.cancelText, { color: theme.textMuted }]}>Cancel</Text>
+                </TouchableOpacity>
+            )}
+
+            {/* Template Picker Modal */}
+            <TemplatePicker
+                visible={showPicker}
+                onSelect={handleTemplateSelect}
+                onBlank={handleBlank}
+                onClose={() => setShowPicker(false)}
+                contactData={contactData}
+            />
         </View>
     );
 }
@@ -148,7 +218,10 @@ const styles = StyleSheet.create({
     warningText: { fontSize: 12, color: '#e65100', flex: 1 },
     errorRow: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 8 },
     errorText: { fontSize: 12 },
+    editorSection: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#e0e0e0', paddingTop: 10, marginTop: 4, marginBottom: 4 },
     sendBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
     sendingRow: { flexDirection: 'row', alignItems: 'center' },
     sendBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+    cancelBtn: { alignItems: 'center', paddingVertical: 6 },
+    cancelText: { fontSize: 13, fontWeight: '500' },
 });
