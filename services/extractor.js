@@ -21,7 +21,7 @@ export async function extractWithAI(company, domain, searchSnippets) {
             {
                 model,
                 temperature: 0.1,
-                max_tokens: 800,
+                max_tokens: 1200,
                 messages: [
                     { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
                     { role: 'user', content: prompt },
@@ -72,6 +72,7 @@ export async function extractWithAI(company, domain, searchSnippets) {
                 email: c.e || c.email || null,
                 linkedin: c.l || c.linkedin || null,
                 phone: c.ph || c.phone || null,
+                confidence: c.cf || c.confidence || 'medium',
             })),
         };
     } catch {
@@ -79,31 +80,101 @@ export async function extractWithAI(company, domain, searchSnippets) {
     }
 }
 
+// Common email patterns used by companies, ordered by popularity
+const COMMON_PATTERNS = [
+    'firstname.lastname',    // john.doe@company.com (most common)
+    'firstname_lastname',    // john_doe@company.com
+    'firstnamelastname',     // johndoe@company.com
+    'flastname',             // jdoe@company.com
+    'firstname',             // john@company.com
+    'firstname.l',           // john.d@company.com
+    'f.lastname',            // j.doe@company.com
+    'lastname.firstname',    // doe.john@company.com
+    'firstnamel',            // johnd@company.com
+];
+
+/**
+ * Parse a person's name into first name and last name, handling multi-word names
+ */
+function parseName(fullName) {
+    const parts = fullName.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return { first: '', last: '' };
+    if (parts.length === 1) return { first: parts[0], last: '' };
+
+    // First name is always the first word
+    const first = parts[0];
+    // Last name is the LAST word (skip middle names, prefixes like "van", "de", etc.)
+    const last = parts[parts.length - 1];
+
+    return { first, last };
+}
+
+/**
+ * Apply an email pattern template to a name
+ */
+function applyPattern(pattern, first, last, domain) {
+    if (!first) return null;
+
+    const email = pattern
+        .replace('firstname', first)
+        .replace('lastname', last)
+        .replace(/\bflastname\b/, `${first[0]}${last}`)
+        .replace(/\bfirstnamel\b/, `${first}${last ? last[0] : ''}`)
+        .replace(/\bfirstname\.l\b/, `${first}.${last ? last[0] : ''}`)
+        .replace(/\bf\.lastname\b/, `${first[0]}.${last}`)
+        .replace(/\blastname\.firstname\b/, `${last}.${first}`)
+        .replace(/\bfirstnamelastname\b/, `${first}${last}`);
+
+    // Don't generate if it still contains template variables
+    if (/firstname|lastname/.test(email)) return null;
+    // Don't generate if last name was needed but missing
+    if (!last && pattern.includes('last')) return null;
+
+    return email.includes('@') ? email : `${email}@${domain}`;
+}
+
 export function generateEmailCandidates(extracted) {
     const { domain, patterns = [], people = [] } = extracted;
 
+    // Merge AI-detected patterns with common ones, AI patterns first (higher priority)
+    const allPatterns = [...new Set([...patterns, ...COMMON_PATTERNS])];
+
     return people.map((person) => {
-        if (person.email && person.email !== 'null' && person.email !== null) {
-            return { ...person, emailCandidates: [person.email] };
+        // If AI found an actual email in search results, trust it
+        if (person.email && person.email !== 'null' && person.email !== null
+            && !['null', 'email', 'undefined'].includes(person.email.toLowerCase())) {
+            return {
+                ...person,
+                emailCandidates: [person.email],
+                confidence: person.confidence || 'high',
+            };
         }
 
-        const nameParts = person.name.toLowerCase().split(/\s+/);
-        const first = nameParts[0] || '';
-        const last = nameParts.slice(1).join('') || '';
+        const { first, last } = parseName(person.name);
 
-        const candidates = patterns.map((p) => {
-            const filled = p
-                .replace('firstname', first)
-                .replace('lastname', last)
-                .replace(/\bf\b/, first[0] || '');
-            // If pattern already contains @, use as-is; otherwise append @domain
-            return filled.includes('@') ? filled : `${filled}@${domain}`;
-        });
+        if (!first) {
+            return {
+                ...person,
+                email: null,
+                emailCandidates: [],
+                confidence: 'low',
+            };
+        }
+
+        // Generate candidates from all patterns
+        const candidates = allPatterns
+            .map((p) => applyPattern(p, first, last, domain))
+            .filter(Boolean);
+
+        // Remove duplicates
+        const unique = [...new Set(candidates)];
 
         return {
             ...person,
-            email: candidates[0] || `${first}@${domain}`,
-            emailCandidates: candidates,
+            email: unique[0] || `${first}@${domain}`,
+            emailCandidates: unique,
+            // If email was generated from patterns, confidence is medium at best
+            confidence: person.confidence === 'high' ? 'medium' : (person.confidence || 'medium'),
         };
     });
 }

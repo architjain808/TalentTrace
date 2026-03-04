@@ -2,6 +2,12 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { useTheme } from '../constants/theme';
 
+const CONFIDENCE_CONFIG = {
+    high: { emoji: '🟢', label: 'High', desc: 'Email found in search results' },
+    medium: { emoji: '🟡', label: 'Medium', desc: 'Pattern-matched, domain verified' },
+    low: { emoji: '🔴', label: 'Low', desc: 'Guessed, may not exist' },
+};
+
 export default function EmailCard({ contact, onSend, company }) {
     const { theme } = useTheme();
     const [sending, setSending] = useState(false);
@@ -28,20 +34,42 @@ export default function EmailCard({ contact, onSend, company }) {
 
     const hasLinkedin = contact.linkedin && contact.linkedin !== 'null';
     const hasPhone = contact.phone && contact.phone !== 'null';
+    const confidence = CONFIDENCE_CONFIG[contact.confidence] || CONFIDENCE_CONFIG.medium;
+    const isInvalid = contact.validation && !contact.validation.valid;
 
     return (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder },
+        isInvalid && styles.invalidCard]}>
             <View style={styles.header}>
                 <View style={styles.info}>
                     <Text style={[styles.name, { color: theme.text }]}>{contact.name}</Text>
                     <Text style={[styles.role, { color: theme.textSecondary }]}>{contact.role}</Text>
                 </View>
+                {/* Confidence Badge */}
+                <View style={[styles.badge, {
+                    backgroundColor: contact.confidence === 'high' ? '#e8f5e9'
+                        : contact.confidence === 'low' ? '#fbe9e7' : '#fff8e1'
+                }]}>
+                    <Text style={styles.badgeEmoji}>{confidence.emoji}</Text>
+                    <Text style={[styles.badgeText, {
+                        color: contact.confidence === 'high' ? '#2e7d32'
+                            : contact.confidence === 'low' ? '#c62828' : '#f57f17'
+                    }]}>{confidence.label}</Text>
+                </View>
             </View>
 
             <View style={[styles.detailRow, { backgroundColor: theme.bgTertiary }]}>
                 <Text style={styles.detailIcon}>📧</Text>
-                <Text style={[styles.detailText, { color: theme.accent }]} numberOfLines={1}>{contact.email}</Text>
+                <Text style={[styles.detailText, { color: theme.accent }]} numberOfLines={1}>{contact.email || 'No email found'}</Text>
             </View>
+
+            {/* Validation warning */}
+            {isInvalid && (
+                <View style={[styles.warningRow, { backgroundColor: '#fff3e0' }]}>
+                    <Text style={styles.warningIcon}>⚠️</Text>
+                    <Text style={styles.warningText}>{contact.validation.reason}</Text>
+                </View>
+            )}
 
             {hasLinkedin && (
                 <TouchableOpacity
@@ -80,9 +108,10 @@ export default function EmailCard({ contact, onSend, company }) {
                     styles.sendBtn,
                     { backgroundColor: theme.accent },
                     sent && { backgroundColor: theme.success },
+                    isInvalid && { backgroundColor: theme.textMuted, opacity: 0.6 },
                 ]}
                 onPress={handleSend}
-                disabled={sending || sent}
+                disabled={sending || sent || !contact.email}
                 activeOpacity={0.8}
             >
                 {sending ? (
@@ -92,7 +121,7 @@ export default function EmailCard({ contact, onSend, company }) {
                     </View>
                 ) : (
                     <Text style={styles.sendBtnText}>
-                        {sent ? '✓ Sent' : 'Send Email'}
+                        {sent ? '✓ Sent' : isInvalid ? '⚠ Send Anyway' : 'Send Email'}
                     </Text>
                 )}
             </TouchableOpacity>
@@ -102,18 +131,24 @@ export default function EmailCard({ contact, onSend, company }) {
 
 const styles = StyleSheet.create({
     card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 10 },
+    invalidCard: { opacity: 0.75 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
     info: { flex: 1, marginRight: 8 },
     name: { fontSize: 16, fontWeight: '600', marginBottom: 1 },
     role: { fontSize: 13, fontWeight: '500' },
+    badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, gap: 4 },
+    badgeEmoji: { fontSize: 10 },
+    badgeText: { fontSize: 11, fontWeight: '700' },
     detailRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 6, gap: 8 },
     detailIcon: { fontSize: 13 },
     detailText: { fontSize: 13, fontWeight: '500', flex: 1 },
     openLink: { fontSize: 11, fontWeight: '600' },
+    warningRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 6, gap: 6 },
+    warningIcon: { fontSize: 12 },
+    warningText: { fontSize: 12, color: '#e65100', flex: 1 },
     errorRow: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, marginBottom: 8 },
     errorText: { fontSize: 12 },
     sendBtn: { borderRadius: 10, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
     sendingRow: { flexDirection: 'row', alignItems: 'center' },
     sendBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
-

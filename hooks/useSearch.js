@@ -1,12 +1,14 @@
 import { useState, useCallback } from 'react';
 import { findCompanyDomain, searchHRContacts } from '../services/search';
 import { extractWithAI, generateEmailCandidates } from '../services/extractor';
+import { validateContacts } from '../services/validator';
 
 const STEPS = [
     'Finding company domain...',
     'Searching for HR contacts...',
     'Extracting contacts with AI...',
     'Generating email candidates...',
+    'Validating emails...',
     'Done!',
 ];
 
@@ -41,15 +43,32 @@ export function useSearch() {
             setCurrentStep(3);
             const candidates = generateEmailCandidates(extracted);
 
-            // Done
+            // Step 5: Validate emails (format, MX records, domain check)
             setCurrentStep(4);
-            setResults(candidates);
+            const validated = await validateContacts(candidates);
 
-            if (candidates.length === 0) {
+            // Sort: valid emails first, then by confidence (high > medium > low)
+            const confidenceOrder = { high: 0, medium: 1, low: 2 };
+            validated.sort((a, b) => {
+                // Valid first
+                if (a.validation?.valid !== b.validation?.valid) {
+                    return a.validation?.valid ? -1 : 1;
+                }
+                // Then by confidence
+                const aConf = confidenceOrder[a.confidence] ?? 2;
+                const bConf = confidenceOrder[b.confidence] ?? 2;
+                return aConf - bConf;
+            });
+
+            // Done
+            setCurrentStep(5);
+            setResults(validated);
+
+            if (validated.length === 0) {
                 setError('No HR contacts found. Try a different company name.');
             }
 
-            return candidates;
+            return validated;
         } catch (err) {
             const message =
                 err.response?.data?.message || err.message || 'An unexpected error occurred.';
@@ -79,4 +98,3 @@ export function useSearch() {
         clearResults,
     };
 }
-

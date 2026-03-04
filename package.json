@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
+    "dev": "nodemon",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -27,7 +28,8 @@
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
-    "babel-preset-expo": "^55.0.10"
+    "babel-preset-expo": "^55.0.10",
+    "nodemon": "^3.1.14"
   },
   "private": true
 }

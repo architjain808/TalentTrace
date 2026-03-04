@@ -1,0 +1,21 @@
+{
+    "watch": [
+        "app/",
+        "components/",
+        "hooks/",
+        "services/",
+        "constants/",
+        "App.js",
+        "index.js"
+    ],
+    "ext": "js,jsx,ts,tsx,json",
+    "ignore": [
+        ".expo/",
+        "node_modules/",
+        ".git/",
+        "assets/"
+    ],
+    "exec": "npx expo start",
+    "delay": 1500,
+    "legacyWatch": true
+}
