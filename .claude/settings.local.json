@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(systeminfo:*)",
+      "Bash(\"/c/Program:*)",
+      "Bash(export:*)",
+      "Bash(yes:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)",
+      "Bash(powershell:*)",
+      "Bash(cmd:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.expo.dev)",
+      "WebFetch(domain:developers.googleblog.com)",
+      "Bash(echo:*)"
+    ]
+  }
+}

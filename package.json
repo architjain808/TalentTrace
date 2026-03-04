@@ -5,11 +5,18 @@
   "scripts": {
     "start": "expo start",
     "dev": "nodemon",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "build:android": "eas build --platform android --profile preview",
-    "build:android:prod": "eas build --platform android --profile production"
+    "build:android:prod": "eas build --platform android --profile production",
+    "build:local": "powershell -Command \"cd android; .\\gradlew.bat assembleDebug -PreactNativeArchitectures=arm64-v8a\"",
+    "build:local:release": "powershell -Command \"cd android; .\\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a\"",
+    "build:local:all-arch": "powershell -Command \"cd android; .\\gradlew.bat assembleRelease\"",
+    "install:apk": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
+    "install:apk:release": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
+    "dev:android": "npx expo run:android",
+    "prebuild": "expo prebuild --platform android --clean"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",

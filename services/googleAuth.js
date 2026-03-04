@@ -1,8 +1,8 @@
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
-import { saveSecureKey, getSecureKey, deleteSecureKey } from './storage';
 import { Platform } from 'react-native';
+import { saveSecureKey, getSecureKey, deleteSecureKey } from './storage';
 import Constants from 'expo-constants';
 
 // Complete any pending auth sessions
@@ -10,8 +10,16 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Client IDs from .env (loaded via expo-constants)
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || Constants.expoConfig?.extra?.googleWebClientId || '';
-const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || Constants.expoConfig?.extra?.googleAndroidClientId || '';
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
 const WEB_CLIENT_SECRET = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_SECRET || '';
+
+// On web → uses the current origin (https://...)
+// On Android with a proper Android-type OAuth client → expo-auth-session auto-generates
+//   com.googleusercontent.apps.{android-client-id}:/oauth2redirect
+// which Google accepts without any redirect URI configuration in the console.
+const REDIRECT_URI = makeRedirectUri({
+    scheme: Constants.expoConfig?.scheme || 'hr-email-finder',
+});
 
 // Secure storage keys
 const KEYS = {
@@ -30,13 +38,18 @@ const SCOPES = [
 ];
 
 /**
- * React hook for Google Sign-In using expo-auth-session PKCE flow
- * Usage: const { request, signIn, signOut, authState, isLoading } = useGoogleAuth();
+ * React hook for Google Sign-In using expo-auth-session PKCE flow.
+ *
+ * On Android: uses ANDROID_CLIENT_ID (Android-type OAuth client). expo-auth-session
+ * auto-generates the reverse-DNS redirect URI (com.googleusercontent.apps.{id}:/oauth2redirect)
+ * which Google accepts without needing to register a custom scheme.
+ *
+ * On Web: uses WEB_CLIENT_ID with the current origin as redirect URI.
  */
 export function useGoogleAuth() {
     const [request, response, promptAsync] = Google.useAuthRequest({
         webClientId: WEB_CLIENT_ID,
-        androidClientId: ANDROID_CLIENT_ID,
+        androidClientId: ANDROID_CLIENT_ID || WEB_CLIENT_ID,
         scopes: SCOPES,
         responseType: 'code',
         shouldAutoExchangeCode: false,
@@ -57,15 +70,14 @@ export function useGoogleAuth() {
  * @param {string} redirectUri - The exact redirect URI used in the auth request (request.redirectUri)
  */
 export async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
-    const clientId = Platform.OS === 'android' ? ANDROID_CLIENT_ID : WEB_CLIENT_ID;
+    // Use Android client ID on Android (matches what was used in the auth request)
+    const clientId = Platform.OS === 'android' && ANDROID_CLIENT_ID
+        ? ANDROID_CLIENT_ID
+        : WEB_CLIENT_ID;
 
-    // Must use the exact same redirect URI that was used in the initial auth request.
-    // Regenerating it here can produce a different value (especially in Expo Go) and
-    // cause Google to reject the exchange with redirect_uri_mismatch.
-    const resolvedRedirectUri = redirectUri || makeRedirectUri({
-        scheme: Constants.expoConfig?.scheme,
-        path: '',
-    });
+    // Use the exact redirect URI from the auth request, falling back to our
+    // pre-computed REDIRECT_URI (which is the same value).
+    const resolvedRedirectUri = redirectUri || REDIRECT_URI;
 
     const params = {
         code,
@@ -74,13 +86,13 @@ export async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
         redirect_uri: resolvedRedirectUri,
     };
 
-    // PKCE: use code_verifier instead of client_secret (for Android/native)
+    // PKCE: use code_verifier instead of client_secret when available
     if (codeVerifier) {
         params.code_verifier = codeVerifier;
     }
 
-    // Web Client IDs require client_secret (Android uses PKCE/SHA-1 instead)
-    if (Platform.OS === 'web' && WEB_CLIENT_SECRET) {
+    // Web client accepts client_secret; Android OAuth clients must NOT send it
+    if (WEB_CLIENT_SECRET && Platform.OS !== 'android') {
         params.client_secret = WEB_CLIENT_SECRET;
     }
 
@@ -141,7 +153,9 @@ export async function getAccessToken() {
     }
 
     // Token expired — refresh it
-    const clientId = Platform.OS === 'android' ? ANDROID_CLIENT_ID : WEB_CLIENT_ID;
+    const clientId = Platform.OS === 'android' && ANDROID_CLIENT_ID
+        ? ANDROID_CLIENT_ID
+        : WEB_CLIENT_ID;
 
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -187,7 +201,7 @@ export async function getAuthState() {
  * Returns whether Google OAuth client IDs are configured for the current platform
  */
 export function isGoogleAuthConfigured() {
-    if (Platform.OS === 'android') return !!ANDROID_CLIENT_ID;
+    if (Platform.OS === 'android') return !!(ANDROID_CLIENT_ID || WEB_CLIENT_ID);
     return !!WEB_CLIENT_ID;
 }
 
