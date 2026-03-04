@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
 import { loadSettings, saveSettings } from '../services/storage';
-import { useGoogleAuth, exchangeCodeForTokens, getAuthState, signOut as googleSignOut } from '../services/googleAuth';
+import { useGoogleAuth, exchangeCodeForTokens, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured } from '../services/googleAuth';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 import EmailEditor from '../components/EmailEditor';
@@ -46,16 +46,20 @@ export default function SettingsScreen() {
     // Handle Google OAuth response
     useEffect(() => {
         if (response?.type === 'success' && response.params?.code) {
-            handleGoogleCode(response.params.code, request?.codeVerifier);
+            // Pass request.redirectUri so the token exchange uses the exact same URI
+            handleGoogleCode(response.params.code, request?.codeVerifier, request?.redirectUri);
         } else if (response?.type === 'error') {
             setSigningIn(false);
             showToast('error', 'Sign-In Failed', response.error?.message || 'Could not sign in with Google.');
+        } else if (response?.type === 'dismiss') {
+            // User closed the auth dialog — reset loading state
+            setSigningIn(false);
         }
     }, [response]);
 
-    const handleGoogleCode = async (code, codeVerifier) => {
+    const handleGoogleCode = async (code, codeVerifier, redirectUri) => {
         try {
-            const result = await exchangeCodeForTokens(code, codeVerifier);
+            const result = await exchangeCodeForTokens(code, codeVerifier, redirectUri);
             setGoogleState({ isSignedIn: true, userEmail: result.userEmail, userName: result.userName });
             showToast('success', 'Signed In!', `Connected as ${result.userEmail}`);
         } catch (err) {
@@ -66,6 +70,10 @@ export default function SettingsScreen() {
     };
 
     const handleGoogleSignIn = async () => {
+        if (!isGoogleAuthConfigured()) {
+            showToast('error', 'Not Configured', 'Google Client ID is missing. Check your .env file and restart the server.');
+            return;
+        }
         setSigningIn(true);
         try {
             await promptAsync();

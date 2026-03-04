@@ -22,7 +22,7 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.yourname.hremailfinder"
+      "package": "com.talenttrace.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",

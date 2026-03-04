@@ -54,11 +54,15 @@ export function useGoogleAuth() {
  * Called after the user completes Google sign-in
  * @param {string} code - Authorization code from Google
  * @param {string} codeVerifier - PKCE code verifier from the auth request
+ * @param {string} redirectUri - The exact redirect URI used in the auth request (request.redirectUri)
  */
-export async function exchangeCodeForTokens(code, codeVerifier) {
+export async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
     const clientId = Platform.OS === 'android' ? ANDROID_CLIENT_ID : WEB_CLIENT_ID;
 
-    const redirectUri = makeRedirectUri({
+    // Must use the exact same redirect URI that was used in the initial auth request.
+    // Regenerating it here can produce a different value (especially in Expo Go) and
+    // cause Google to reject the exchange with redirect_uri_mismatch.
+    const resolvedRedirectUri = redirectUri || makeRedirectUri({
         scheme: Constants.expoConfig?.scheme,
         path: '',
     });
@@ -67,7 +71,7 @@ export async function exchangeCodeForTokens(code, codeVerifier) {
         code,
         client_id: clientId,
         grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
+        redirect_uri: resolvedRedirectUri,
     };
 
     // PKCE: use code_verifier instead of client_secret (for Android/native)
@@ -177,6 +181,14 @@ export async function getAuthState() {
         userEmail: email || null,
         userName: name || null,
     };
+}
+
+/**
+ * Returns whether Google OAuth client IDs are configured for the current platform
+ */
+export function isGoogleAuthConfigured() {
+    if (Platform.OS === 'android') return !!ANDROID_CLIENT_ID;
+    return !!WEB_CLIENT_ID;
 }
 
 /**
