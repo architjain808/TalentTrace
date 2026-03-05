@@ -1,31 +1,20 @@
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import { saveSecureKey, getSecureKey, deleteSecureKey } from './storage';
-import Constants from 'expo-constants';
 
-// Complete any pending auth sessions
-WebBrowser.maybeCompleteAuthSession();
+// Client IDs from .env (bundled at build time via EXPO_PUBLIC_*)
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+/*
+ * We DO NOT need to configure the androidClientId in GoogleSignin.configure().
+ * The Android SDK automatically infers its own client ID from the google-services.json / SHA-1.
+ * We ONLY need to pass the WEB_CLIENT_ID to get a serverAuthCode or idToken.
+ */
 
-// Client IDs from .env (loaded via expo-constants)
-const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || Constants.expoConfig?.extra?.googleWebClientId || '';
-const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
-const WEB_CLIENT_SECRET = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_SECRET || '';
-
-// On web → uses the current origin (https://...)
-// On Android with a proper Android-type OAuth client → expo-auth-session auto-generates
-//   com.googleusercontent.apps.{android-client-id}:/oauth2redirect
-// which Google accepts without any redirect URI configuration in the console.
-const REDIRECT_URI = makeRedirectUri({
-    scheme: Constants.expoConfig?.scheme || 'hr-email-finder',
-});
+console.log('[GoogleAuth] WEB_CLIENT_ID:', WEB_CLIENT_ID ? WEB_CLIENT_ID.slice(0, 25) + '...' : 'EMPTY');
 
 // Secure storage keys
 const KEYS = {
     ACCESS_TOKEN: 'google_access_token',
-    REFRESH_TOKEN: 'google_refresh_token',
-    TOKEN_EXPIRY: 'google_token_expiry',
     USER_EMAIL: 'google_user_email',
     USER_NAME: 'google_user_name',
 };
@@ -37,178 +26,105 @@ const SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
 ];
 
-/**
- * React hook for Google Sign-In using expo-auth-session PKCE flow.
- *
- * On Android: uses ANDROID_CLIENT_ID (Android-type OAuth client). expo-auth-session
- * auto-generates the reverse-DNS redirect URI (com.googleusercontent.apps.{id}:/oauth2redirect)
- * which Google accepts without needing to register a custom scheme.
- *
- * On Web: uses WEB_CLIENT_ID with the current origin as redirect URI.
- */
-export function useGoogleAuth() {
-    const [request, response, promptAsync] = Google.useAuthRequest({
-        webClientId: WEB_CLIENT_ID,
-        androidClientId: ANDROID_CLIENT_ID || WEB_CLIENT_ID,
-        scopes: SCOPES,
-        responseType: 'code',
-        shouldAutoExchangeCode: false,
-        extraParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-        },
-    });
+// ─── INITIALIZE GOOGLE SIGN-IN ──────────────────────────────────────────────
+GoogleSignin.configure({
+    scopes: SCOPES,
+    webClientId: WEB_CLIENT_ID,
+    offlineAccess: true, // Required to get a refresh token in the background
+    forceCodeForRefreshToken: true,
+});
 
-    return { request, response, promptAsync };
+/**
+ * Perform Google Sign-In using the native SDK
+ */
+export async function signInWithGoogle() {
+    try {
+        await GoogleSignin.hasPlayServices();
+        const userInfo = await GoogleSignin.signIn();
+
+        // In @react-native-google-signin/google-signin v11+, userInfo is wrapped in a `data` object
+        const user = userInfo.data ? userInfo.data.user : userInfo.user;
+
+        // After native sign-in, the SDK holds the tokens.
+        // We retrieve the active access token.
+        const tokens = await GoogleSignin.getTokens();
+
+        console.log('[GoogleAuth] Native Sign-In Success:', user.email);
+
+        await saveSecureKey(KEYS.ACCESS_TOKEN, tokens.accessToken);
+        await saveSecureKey(KEYS.USER_EMAIL, user.email || '');
+        await saveSecureKey(KEYS.USER_NAME, user.name || '');
+
+        return {
+            accessToken: tokens.accessToken,
+            userEmail: user.email,
+            userName: user.name,
+            userInfo,
+        };
+    } catch (error) {
+        console.error('[GoogleAuth] Sign In Error:', error);
+        throw error;
+    }
 }
 
 /**
- * Exchange authorization code for access + refresh tokens
- * Called after the user completes Google sign-in
- * @param {string} code - Authorization code from Google
- * @param {string} codeVerifier - PKCE code verifier from the auth request
- * @param {string} redirectUri - The exact redirect URI used in the auth request (request.redirectUri)
- */
-export async function exchangeCodeForTokens(code, codeVerifier, redirectUri) {
-    // Use Android client ID on Android (matches what was used in the auth request)
-    const clientId = Platform.OS === 'android' && ANDROID_CLIENT_ID
-        ? ANDROID_CLIENT_ID
-        : WEB_CLIENT_ID;
-
-    // Use the exact redirect URI from the auth request, falling back to our
-    // pre-computed REDIRECT_URI (which is the same value).
-    const resolvedRedirectUri = redirectUri || REDIRECT_URI;
-
-    const params = {
-        code,
-        client_id: clientId,
-        grant_type: 'authorization_code',
-        redirect_uri: resolvedRedirectUri,
-    };
-
-    // PKCE: use code_verifier instead of client_secret when available
-    if (codeVerifier) {
-        params.code_verifier = codeVerifier;
-    }
-
-    // Web client accepts client_secret; Android OAuth clients must NOT send it
-    if (WEB_CLIENT_SECRET && Platform.OS !== 'android') {
-        params.client_secret = WEB_CLIENT_SECRET;
-    }
-
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(params).toString(),
-    });
-
-    const data = await tokenRes.json();
-
-    if (data.error) {
-        throw new Error(data.error_description || data.error);
-    }
-
-    // Store tokens securely
-    await saveSecureKey(KEYS.ACCESS_TOKEN, data.access_token);
-    if (data.refresh_token) {
-        await saveSecureKey(KEYS.REFRESH_TOKEN, data.refresh_token);
-    }
-
-    const expiresAt = Date.now() + (data.expires_in * 1000);
-    await saveSecureKey(KEYS.TOKEN_EXPIRY, expiresAt.toString());
-
-    // Fetch user info
-    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { Authorization: `Bearer ${data.access_token}` },
-    });
-    const user = await userRes.json();
-
-    await saveSecureKey(KEYS.USER_EMAIL, user.email || '');
-    await saveSecureKey(KEYS.USER_NAME, user.name || '');
-
-    return {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        userEmail: user.email,
-        userName: user.name,
-    };
-}
-
-/**
- * Get a valid access token — auto-refreshes if expired
+ * Get a valid access token.
+ * The GoogleSignin SDK handles token caching and refreshing automatically
+ * when you call getTokens().
  */
 export async function getAccessToken() {
-    const accessToken = await getSecureKey(KEYS.ACCESS_TOKEN);
-    const expiryStr = await getSecureKey(KEYS.TOKEN_EXPIRY);
-    const refreshToken = await getSecureKey(KEYS.REFRESH_TOKEN);
+    try {
+        // SDK throws if not signed in, or if it can't silently refresh
+        const tokens = await GoogleSignin.getTokens();
 
-    if (!accessToken || !refreshToken) {
-        throw new Error('Not signed in with Google. Please sign in first.');
-    }
-
-    // Check if token is still valid (with 5 min buffer)
-    const expiry = parseInt(expiryStr || '0');
-    if (Date.now() < expiry - 300000) {
-        return accessToken;
-    }
-
-    // Token expired — refresh it
-    const clientId = Platform.OS === 'android' && ANDROID_CLIENT_ID
-        ? ANDROID_CLIENT_ID
-        : WEB_CLIENT_ID;
-
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-            refresh_token: refreshToken,
-            client_id: clientId,
-            grant_type: 'refresh_token',
-        }).toString(),
-    });
-
-    const data = await tokenRes.json();
-
-    if (data.error) {
-        // Refresh failed — user needs to re-sign-in
+        // Update stored token
+        await saveSecureKey(KEYS.ACCESS_TOKEN, tokens.accessToken);
+        return tokens.accessToken;
+    } catch (error) {
+        // Silent refresh failed or not signed in
         await signOut();
         throw new Error('Google session expired. Please sign in again.');
     }
-
-    await saveSecureKey(KEYS.ACCESS_TOKEN, data.access_token);
-    const newExpiry = Date.now() + (data.expires_in * 1000);
-    await saveSecureKey(KEYS.TOKEN_EXPIRY, newExpiry.toString());
-
-    return data.access_token;
 }
 
 /**
  * Get current auth state
  */
 export async function getAuthState() {
+    // Check if SDK has an active session (v11+ uses hasPreviousSignIn instead of isSignedIn)
+    const isSignedIn = GoogleSignin.hasPreviousSignIn();
+
+    if (!isSignedIn) {
+        return { isSignedIn: false, userEmail: null, userName: null };
+    }
+
     const email = await getSecureKey(KEYS.USER_EMAIL);
     const name = await getSecureKey(KEYS.USER_NAME);
-    const token = await getSecureKey(KEYS.ACCESS_TOKEN);
 
     return {
-        isSignedIn: !!(email && token),
+        isSignedIn: true,
         userEmail: email || null,
         userName: name || null,
     };
 }
 
 /**
- * Returns whether Google OAuth client IDs are configured for the current platform
+ * Returns whether Google OAuth is configured
  */
 export function isGoogleAuthConfigured() {
-    if (Platform.OS === 'android') return !!(ANDROID_CLIENT_ID || WEB_CLIENT_ID);
     return !!WEB_CLIENT_ID;
 }
 
 /**
- * Sign out — clear all stored tokens
+ * Sign out — clear native SDK session and stored tokens
  */
 export async function signOut() {
+    try {
+        await GoogleSignin.signOut();
+    } catch (error) {
+        console.warn('[GoogleAuth] Native SignOut Error:', error);
+    }
+
     for (const key of Object.values(KEYS)) {
         await deleteSecureKey(key);
     }

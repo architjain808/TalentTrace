@@ -15,7 +15,8 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.expo.dev)",
       "WebFetch(domain:developers.googleblog.com)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(keytool:*)"
     ]
   }
 }

@@ -75,7 +75,7 @@ export default function HomeScreen() {
                     onPress={() => setActiveTab('direct')}
                     activeOpacity={0.8}
                 >
-                    <Text style={[styles.tabText, { color: activeTab === 'direct' ? '#fff' : theme.textSecondary }]}>Direct Send</Text>
+                    <Text style={[styles.tabText, { color: activeTab === 'direct' ? '#fff' : theme.textSecondary }]}>Direct Seend</Text>
                 </TouchableOpacity>
             </View>
 

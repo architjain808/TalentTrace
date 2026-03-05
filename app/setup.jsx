@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -10,7 +10,7 @@ import {
     Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useGoogleAuth, exchangeCodeForTokens } from '../services/googleAuth';
+import { signInWithGoogle } from '../services/googleAuth';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 
@@ -22,39 +22,21 @@ export default function SetupScreen() {
     const [googleEmail, setGoogleEmail] = useState('');
     const [signingIn, setSigningIn] = useState(false);
 
-    // Google Auth hook
-    const { request, response, promptAsync } = useGoogleAuth();
-
-    // Handle Google OAuth response
-    useEffect(() => {
-        if (response?.type === 'success' && response.params?.code) {
-            handleGoogleCode(response.params.code, request?.codeVerifier);
-        } else if (response?.type === 'error') {
-            setSigningIn(false);
-            showToast('error', 'Sign-In Failed', response.error?.message || 'Could not sign in with Google.');
-        }
-    }, [response]);
-
-    const handleGoogleCode = async (code, codeVerifier) => {
+    const handleGoogleSignIn = async () => {
+        setSigningIn(true);
         try {
-            const result = await exchangeCodeForTokens(code, codeVerifier);
+            const result = await signInWithGoogle();
             setGoogleSignedIn(true);
             setGoogleEmail(result.userEmail || '');
             showToast('success', 'Signed In!', `Connected as ${result.userEmail}`);
         } catch (err) {
-            showToast('error', 'Sign-In Failed', err.message);
+            console.error(err);
+            // Ignore cancellation errors
+            if (err.code !== 'ASYNC_OP_IN_PROGRESS' && err.code !== 'SIGN_IN_CANCELLED') {
+                showToast('error', 'Sign-In Failed', err.message || 'Could not sign in with Google.');
+            }
         } finally {
             setSigningIn(false);
-        }
-    };
-
-    const handleGoogleSignIn = async () => {
-        setSigningIn(true);
-        try {
-            await promptAsync();
-        } catch (err) {
-            setSigningIn(false);
-            showToast('error', 'Error', 'Could not open Google sign-in.');
         }
     };
 
