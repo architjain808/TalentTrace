@@ -27,17 +27,76 @@ const SCOPES = [
 ];
 
 // ─── INITIALIZE GOOGLE SIGN-IN ──────────────────────────────────────────────
-GoogleSignin.configure({
-    scopes: SCOPES,
-    webClientId: WEB_CLIENT_ID,
-    offlineAccess: true, // Required to get a refresh token in the background
-    forceCodeForRefreshToken: true,
-});
+if (Platform.OS !== 'web') {
+    GoogleSignin.configure({
+        scopes: SCOPES,
+        webClientId: WEB_CLIENT_ID,
+        offlineAccess: true, // Required to get a refresh token in the background
+        forceCodeForRefreshToken: true,
+    });
+}
 
 /**
  * Perform Google Sign-In using the native SDK
  */
 export async function signInWithGoogle() {
+    if (Platform.OS === 'web') {
+        return new Promise((resolve, reject) => {
+            const handleAuth = () => {
+                try {
+                    const client = window.google.accounts.oauth2.initTokenClient({
+                        client_id: WEB_CLIENT_ID,
+                        scope: SCOPES.join(' '),
+                        callback: async (tokenResponse) => {
+                            if (tokenResponse && tokenResponse.access_token) {
+                                try {
+                                    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+                                    });
+                                    if (!userInfoRes.ok) throw new Error('Failed to fetch user info');
+
+                                    const userInfo = await userInfoRes.json();
+
+                                    await saveSecureKey(KEYS.ACCESS_TOKEN, tokenResponse.access_token);
+                                    await saveSecureKey(KEYS.USER_EMAIL, userInfo.email || '');
+                                    await saveSecureKey(KEYS.USER_NAME, userInfo.name || '');
+
+                                    resolve({
+                                        accessToken: tokenResponse.access_token,
+                                        userEmail: userInfo.email,
+                                        userName: userInfo.name,
+                                        userInfo: userInfo
+                                    });
+                                } catch (err) {
+                                    reject(err);
+                                }
+                            } else {
+                                reject(new Error('No token returned'));
+                            }
+                        },
+                        error_callback: (err) => {
+                            reject(err);
+                        }
+                    });
+                    client.requestAccessToken();
+                } catch (err) {
+                    reject(err);
+                }
+            };
+
+            if (window.google && window.google.accounts) {
+                handleAuth();
+            } else {
+                const script = document.createElement('script');
+                script.src = 'https://accounts.google.com/gsi/client';
+                script.async = true;
+                script.defer = true;
+                script.onload = handleAuth;
+                script.onerror = () => reject(new Error('Failed to load Google Identity Script'));
+                document.body.appendChild(script);
+            }
+        });
+    }
     try {
         await GoogleSignin.hasPlayServices();
         const userInfo = await GoogleSignin.signIn();
@@ -73,6 +132,11 @@ export async function signInWithGoogle() {
  * when you call getTokens().
  */
 export async function getAccessToken() {
+    if (Platform.OS === 'web') {
+        const token = await getSecureKey(KEYS.ACCESS_TOKEN);
+        if (token) return token;
+        throw new Error('Google session expired on web. Please sign in again.');
+    }
     try {
         // SDK throws if not signed in, or if it can't silently refresh
         const tokens = await GoogleSignin.getTokens();
@@ -91,6 +155,20 @@ export async function getAccessToken() {
  * Get current auth state
  */
 export async function getAuthState() {
+    if (Platform.OS === 'web') {
+        const email = await getSecureKey(KEYS.USER_EMAIL);
+        const name = await getSecureKey(KEYS.USER_NAME);
+        const token = await getSecureKey(KEYS.ACCESS_TOKEN);
+
+        if (email && token) {
+            return {
+                isSignedIn: true,
+                userEmail: email,
+                userName: name,
+            };
+        }
+        return { isSignedIn: false, userEmail: null, userName: null };
+    }
     // Check if SDK has an active session (v11+ uses hasPreviousSignIn instead of isSignedIn)
     const isSignedIn = GoogleSignin.hasPreviousSignIn();
 
@@ -119,10 +197,16 @@ export function isGoogleAuthConfigured() {
  * Sign out — clear native SDK session and stored tokens
  */
 export async function signOut() {
-    try {
-        await GoogleSignin.signOut();
-    } catch (error) {
-        console.warn('[GoogleAuth] Native SignOut Error:', error);
+    if (Platform.OS !== 'web') {
+        try {
+            await GoogleSignin.signOut();
+        } catch (error) {
+            console.warn('[GoogleAuth] Native SignOut Error:', error);
+        }
+    } else {
+        // Optional: Revoke token on web if needed, 
+        // e.g., window.google?.accounts?.oauth2?.revoke(...)
+        console.log('[GoogleAuth] Web SignOut executed locally');
     }
 
     for (const key of Object.values(KEYS)) {
