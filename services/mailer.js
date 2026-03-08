@@ -1,5 +1,7 @@
 import { getAccessToken, getAuthState } from './googleAuth';
 import { sendGmail } from './gmailSender';
+import { updateQuotaBalance, getUserProfile } from '../firebase/userCRUD';
+import { auth as firebaseAuth } from '../firebase/config';
 
 /**
  * Send a cold email to an HR contact via Gmail API
@@ -24,7 +26,14 @@ export async function sendColdEmail({ toEmail, toName, company, role, subject, b
 
     const accessToken = await getAccessToken();
 
-    return sendGmail({
+    if (firebaseAuth.currentUser) {
+        const profile = await getUserProfile(firebaseAuth.currentUser.uid);
+        if (profile && profile.quotaBalance <= 0) {
+            throw new Error('Insufficient Quota. Go to Settings and add quota to send emails.');
+        }
+    }
+
+    const response = await sendGmail({
         accessToken,
         to: toEmail,
         subject,
@@ -32,7 +41,13 @@ export async function sendColdEmail({ toEmail, toName, company, role, subject, b
         fromEmail: auth.userEmail,
         fromName: auth.userName,
     });
-    //TODO : deduct one token from account after the mail is sent. 
+    
+    // Deduct one token from account after the mail is successfully sent
+    if (firebaseAuth.currentUser) {
+        await updateQuotaBalance(firebaseAuth.currentUser.uid, -1);
+    }
+    
+    return response;
 }
 
 /**
