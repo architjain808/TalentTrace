@@ -32,6 +32,7 @@ export async function sendColdEmail({ toEmail, toName, company, role, subject, b
         fromEmail: auth.userEmail,
         fromName: auth.userName,
     });
+    //TODO : deduct one token from account after the mail is sent. 
 }
 
 /**
