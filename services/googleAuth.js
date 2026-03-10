@@ -1,6 +1,9 @@
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Platform } from 'react-native';
 import { saveSecureKey, getSecureKey, deleteSecureKey } from './storage';
+import { auth } from '../firebase/config';
+import { GoogleAuthProvider, signInWithCredential, signOut as firebaseSignOut } from 'firebase/auth';
+import { saveUserToFirestore } from '../firebase/userCRUD';
 
 // Client IDs from .env (bundled at build time via EXPO_PUBLIC_*)
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
@@ -61,6 +64,17 @@ export async function signInWithGoogle() {
                                     await saveSecureKey(KEYS.USER_EMAIL, userInfo.email || '');
                                     await saveSecureKey(KEYS.USER_NAME, userInfo.name || '');
 
+                                    // Sign in to Firebase Auth
+                                    const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+                                    const userCredential = await signInWithCredential(auth, credential);
+
+                                    // Save/Update user in Firestore
+                                    await saveUserToFirestore(userCredential.user.uid, {
+                                        email: userInfo.email,
+                                        name: userInfo.name,
+                                        photoURL: userInfo.picture || ''
+                                    });
+
                                     resolve({
                                         accessToken: tokenResponse.access_token,
                                         userEmail: userInfo.email,
@@ -113,6 +127,22 @@ export async function signInWithGoogle() {
         await saveSecureKey(KEYS.ACCESS_TOKEN, tokens.accessToken);
         await saveSecureKey(KEYS.USER_EMAIL, user.email || '');
         await saveSecureKey(KEYS.USER_NAME, user.name || '');
+
+        // Extract idToken
+        const idToken = userInfo.data ? userInfo.data.idToken : userInfo.idToken;
+
+        if (idToken) {
+            // Sign in to Firebase Auth
+            const credential = GoogleAuthProvider.credential(idToken);
+            const userCredential = await signInWithCredential(auth, credential);
+
+            // Save/Update user in Firestore
+            await saveUserToFirestore(userCredential.user.uid, {
+                email: user.email,
+                name: user.name,
+                photoURL: user.photo || ''
+            });
+        }
 
         return {
             accessToken: tokens.accessToken,
@@ -197,6 +227,12 @@ export function isGoogleAuthConfigured() {
  * Sign out — clear native SDK session and stored tokens
  */
 export async function signOut() {
+    try {
+        await firebaseSignOut(auth);
+    } catch (e) {
+        console.warn('[GoogleAuth] Firebase SignOut Error:', e);
+    }
+
     if (Platform.OS !== 'web') {
         try {
             await GoogleSignin.signOut();

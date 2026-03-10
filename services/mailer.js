@@ -24,7 +24,7 @@ export async function sendColdEmail({ toEmail, toName, company, role, subject, b
 
     const accessToken = await getAccessToken();
 
-    return sendGmail({
+    const response = await sendGmail({
         accessToken,
         to: toEmail,
         subject,
@@ -32,6 +32,8 @@ export async function sendColdEmail({ toEmail, toName, company, role, subject, b
         fromEmail: auth.userEmail,
         fromName: auth.userName,
     });
+    
+    return response;
 }
 
 /**

@@ -16,6 +16,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
 import { loadSettings, saveSettings } from '../services/storage';
 import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured } from '../services/googleAuth';
+import { getUserProfile, updateQuotaBalance } from '../firebase/userCRUD';
+import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 import EmailEditor from '../components/EmailEditor';
@@ -29,13 +31,23 @@ export default function SettingsScreen() {
     const [saving, setSaving] = useState(false);
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null });
     const [signingIn, setSigningIn] = useState(false);
+    
+    // Quota State
+    const [quotaBalance, setQuotaBalance] = useState(0);
+    const [addingQuota, setAddingQuota] = useState(false);
 
     useEffect(() => {
         (async () => {
             const s = await loadSettings();
             setModelName(s.openrouterModel || 'google/gemini-2.5-flash-lite');
-            const auth = await getAuthState();
-            setGoogleState(auth);
+            const authState = await getAuthState();
+            setGoogleState(authState);
+            
+            if (authState.isSignedIn && auth.currentUser) {
+                const profile = await getUserProfile(auth.currentUser.uid);
+                if (profile) setQuotaBalance(profile.quotaBalance || 0);
+            }
+            
             setLoading(false);
         })();
     }, []);
@@ -50,6 +62,11 @@ export default function SettingsScreen() {
             const result = await signInWithGoogle();
             setGoogleState({ isSignedIn: true, userEmail: result.userEmail, userName: result.userName });
             showToast('success', 'Signed In!', `Connected as ${result.userEmail}`);
+            
+            if (auth.currentUser) {
+                const profile = await getUserProfile(auth.currentUser.uid);
+                if (profile) setQuotaBalance(profile.quotaBalance || 0);
+            }
         } catch (err) {
             console.error(err);
             if (err.code !== 'ASYNC_OP_IN_PROGRESS' && err.code !== 'SIGN_IN_CANCELLED') {
@@ -63,6 +80,7 @@ export default function SettingsScreen() {
     const handleSignOut = async () => {
         await googleSignOut();
         setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
+        setQuotaBalance(0);
         showToast('info', 'Signed Out', 'Google account disconnected.');
     };
 
@@ -76,6 +94,25 @@ export default function SettingsScreen() {
             showToast('error', 'Error', 'Failed to save settings.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleAddQuota = async () => {
+        if (!auth.currentUser) return;
+        setAddingQuota(true);
+        try {
+            // Add arbitrary amount e.g. 10
+            await updateQuotaBalance(auth.currentUser.uid, 10);
+            
+            // Refresh
+            const profile = await getUserProfile(auth.currentUser.uid);
+            if (profile) setQuotaBalance(profile.quotaBalance || 0);
+            
+            showToast('success', 'Quota Added', 'Successfully added 10 to your balance.');
+        } catch (err) {
+            showToast('error', 'Error', 'Failed to add quota.');
+        } finally {
+            setAddingQuota(false);
         }
     };
 
@@ -107,16 +144,35 @@ export default function SettingsScreen() {
 
                         {googleState.isSignedIn ? (
                             <View>
-                                <Text style={[styles.connectedEmail, { color: theme.textSecondary }]}>
-                                    {googleState.userEmail}
-                                </Text>
-                                <TouchableOpacity
-                                    style={[styles.signOutBtn, { borderColor: '#ef5350' }]}
-                                    onPress={handleSignOut}
-                                    activeOpacity={0.7}
-                                >
-                                    <Text style={[styles.signOutText, { color: '#ef5350' }]}>Sign Out</Text>
-                                </TouchableOpacity>
+                                <View style={styles.accountRow}>
+                                    <Text style={[styles.connectedEmail, { color: theme.textSecondary }]}>
+                                        {googleState.userEmail}
+                                    </Text>
+                                    <View style={styles.quotaBadge}>
+                                        <Text style={styles.quotaText}>Quota: {quotaBalance}</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.accountActions}>
+                                    <TouchableOpacity
+                                        style={[styles.signOutBtn, { borderColor: '#ef5350', flex: 1 }]}
+                                        onPress={handleSignOut}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.signOutText, { color: '#ef5350' }]}>Sign Out</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.addQuotaBtn, addingQuota && { opacity: 0.7 }]}
+                                        onPress={handleAddQuota}
+                                        disabled={addingQuota}
+                                        activeOpacity={0.7}
+                                    >
+                                        {addingQuota ? (
+                                            <ActivityIndicator size="small" color="#fff" />
+                                        ) : (
+                                            <Text style={styles.addQuotaText}>Add Quota</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         ) : (
                             <View>
@@ -254,4 +310,38 @@ const styles = StyleSheet.create({
         marginTop: 10,
     },
     signOutText: { fontSize: 13, fontWeight: '600' },
+    accountRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    accountActions: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    quotaBadge: {
+        backgroundColor: '#e3f2fd',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    quotaText: {
+        fontSize: 12,
+        fontWeight: '700',
+        color: '#1976d2',
+    },
+    addQuotaBtn: {
+        backgroundColor: '#1976d2',
+        borderRadius: 8,
+        paddingVertical: 8,
+        alignItems: 'center',
+        marginTop: 10,
+        flex: 1,
+    },
+    addQuotaText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#fff',
+    },
 });

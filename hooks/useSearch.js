@@ -2,6 +2,8 @@ import { useState, useCallback } from 'react';
 import { findCompanyDomain, searchHRContacts } from '../services/search';
 import { extractWithAI, generateEmailCandidates } from '../services/extractor';
 import { validateContacts } from '../services/validator';
+import { auth as firebaseAuth } from '../firebase/config';
+import { updateQuotaBalance, getUserProfile } from '../firebase/userCRUD';
 
 const STEPS = [
     'Finding company domain...',
@@ -27,6 +29,18 @@ export function useSearch() {
         setCurrentStep(0);
 
         try {
+            if (!firebaseAuth.currentUser) {
+                throw new Error('Please sign in to search for contacts.');
+            }
+
+            const profile = await getUserProfile(firebaseAuth.currentUser.uid);
+            if (!profile) {
+                throw new Error('User profile not found. Please try again.');
+            }
+            else if (profile.quotaBalance <= 0) {
+                throw new Error('Insufficient Quota. Go to Settings and add quota to search for contacts.');
+            }
+
             // Step 1: Get domain
             setCurrentStep(0);
             const domain = await findCompanyDomain(company);
@@ -59,6 +73,15 @@ export function useSearch() {
                 const bConf = confidenceOrder[b.confidence] ?? 2;
                 return aConf - bConf;
             });
+
+            // Deduct Quota when the entire search and validation succeeds
+            if (firebaseAuth.currentUser) {
+                try {
+                    await updateQuotaBalance(firebaseAuth.currentUser.uid, -1);
+                } catch (e) {
+                    console.error("Failed to deduct quota after search:", e);
+                }
+            }
 
             // Done
             setCurrentStep(5);

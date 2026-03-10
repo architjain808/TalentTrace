@@ -49,6 +49,7 @@ export async function extractWithAI(company, domain, searchSnippets) {
     }
 
     const text = res.data.choices[0].message.content;
+
     try {
         let cleaned = text.replace(/```json|```/g, '').trim();
         // If JSON was truncated, try to salvage it
