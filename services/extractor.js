@@ -1,20 +1,11 @@
 import axios from 'axios';
 import { getSecureKey, loadSettings } from './storage';
-import { updateQuotaBalance, getUserProfile } from '../firebase/userCRUD';
-import { auth as firebaseAuth } from '../firebase/config';
 import {
     EXTRACTION_SYSTEM_PROMPT,
     buildExtractionPrompt,
 } from '../constants/prompts';
 
 export async function extractWithAI(company, domain, searchSnippets) {
-    if (firebaseAuth.currentUser) {
-        const profile = await getUserProfile(firebaseAuth.currentUser.uid);
-        if (profile && profile.quotaBalance <= 0) {
-            throw new Error('Insufficient Quota. Go to Settings and add quota to extract leads.');
-        }
-    }
-
     const key = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
     if (!key) throw new Error('EXPO_PUBLIC_OPENROUTER_API_KEY not configured in .env');
 
@@ -58,15 +49,6 @@ export async function extractWithAI(company, domain, searchSnippets) {
     }
 
     const text = res.data.choices[0].message.content;
-
-    // Deduct one token from account after a successful AI extraction response
-    if (firebaseAuth.currentUser) {
-        try {
-            await updateQuotaBalance(firebaseAuth.currentUser.uid, -1);
-        } catch (e) {
-            console.error("Failed to deduct quota after extraction:", e);
-        }
-    }
 
     try {
         let cleaned = text.replace(/```json|```/g, '').trim();
