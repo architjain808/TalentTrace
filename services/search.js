@@ -26,17 +26,17 @@ export async function findCompanyDomain(company) {
     }
 }
 
-export async function searchHRContacts(company, domain) {
+export async function searchContacts(company, domain, targetRole = 'key contact') {
     const key = process.env.EXPO_PUBLIC_SERPER_API_KEY;
     if (!key) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
 
-    // Two focused queries instead of one diluted one
+    // Two focused queries — both parameterized by targetRole
     const [peopleRes, patternRes] = await Promise.all([
-        // Query 1: Find actual HR people on LinkedIn
+        // Query 1: Find people matching the target role on LinkedIn
         axios.post(
             'https://google.serper.dev/search',
             {
-                q: `${company} HR recruiter talent acquisition contact site:linkedin.com/in`,
+                q: `${company} ${targetRole} site:linkedin.com/in`,
                 num: 10,
             },
             {
@@ -46,11 +46,11 @@ export async function searchHRContacts(company, domain) {
                 },
             }
         ),
-        // Query 2: Find the company's email pattern + phone numbers
+        // Query 2: Find email pattern + contact info for the target role
         axios.post(
             'https://google.serper.dev/search',
             {
-                q: `${company} ${domain} email contact phone number HR recruiter`,
+                q: `${company} ${domain} ${targetRole} email contact`,
                 num: 10,
             },
             {
@@ -80,6 +80,9 @@ export async function searchHRContacts(company, domain) {
         .map((item) => `${item.title}: ${item.snippet} [URL: ${item.link}]`)
         .join('\n');
 
-    if (!snippets) throw new Error('No HR contacts found in search results.');
+    if (!snippets) throw new Error('No contacts found in search results.');
     return snippets;
 }
+
+// Keep old name as alias so nothing breaks if imported elsewhere
+export const searchHRContacts = searchContacts;

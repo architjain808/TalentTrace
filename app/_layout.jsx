@@ -4,9 +4,11 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Toast from '../components/Toast';
 import { getAuthState } from '../services/googleAuth';
+import { getUserRole } from '../services/storage';
 import { ThemeProvider, useTheme } from '../constants/theme';
 
-const UNAUTHENTICATED_ROUTES = ['landing', 'setup'];
+// Routes that don't require auth or a role to be set
+const PUBLIC_ROUTES = ['landing', 'setup', 'role-select'];
 
 function AppContent() {
     const [checking, setChecking] = useState(true);
@@ -18,9 +20,17 @@ function AppContent() {
         (async () => {
             try {
                 const { isSignedIn } = await getAuthState();
-                const onPublicRoute = UNAUTHENTICATED_ROUTES.includes(segments[0]);
-                if (!isSignedIn && !onPublicRoute) {
-                    router.replace('/landing');
+                const onPublicRoute = PUBLIC_ROUTES.includes(segments[0]);
+
+                if (!isSignedIn) {
+                    if (!onPublicRoute) router.replace('/landing');
+                    return;
+                }
+
+                // Signed in — check if role has been selected
+                const role = await getUserRole();
+                if (!role && segments[0] !== 'role-select') {
+                    router.replace('/role-select');
                 }
             } catch { }
             finally { setChecking(false); }
@@ -47,6 +57,7 @@ function AppContent() {
                 }}
             >
                 <Stack.Screen name="landing" />
+                <Stack.Screen name="role-select" />
                 <Stack.Screen name="index" />
                 <Stack.Screen name="setup" />
                 <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />

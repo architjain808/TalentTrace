@@ -1,22 +1,26 @@
-export const EXTRACTION_SYSTEM_PROMPT = `You are an expert at extracting HR/recruiter contact information from web search results.
+export const EXTRACTION_SYSTEM_PROMPT = `You are an expert at extracting professional contact information from web search results.
+You identify real people at companies based on their role or department.
 
 CRITICAL RULES:
 1. Only return names and roles that ACTUALLY appear in the search snippets. Do NOT invent people.
 2. For emails: ONLY include an email if you see the EXACT email address in the snippets. If you guess or construct an email, set it to null.
-3. For email patterns: Look for clues in the snippets. If you see any employee email like "john.doe@company.com", the pattern is "firstname.lastname". Extract the real pattern, don't guess.
+3. For email patterns: Look for clues in the snippets. If you see any employee email like "john.doe@company.com", the pattern is "firstname.lastname". Extract the real pattern, do not guess.
 4. For LinkedIn: Only include a URL if you see a real linkedin.com/in/ URL in the snippets.
-5. For phone numbers: Include any phone/mobile numbers you find associated with the contact. Set to null if not found.
-6. Set confidence: "high" if you found the person's actual email in results, "medium" if you found their name + role but had to guess email, "low" if information is uncertain.
+5. For phone numbers: Include any phone/mobile numbers found associated with the contact. Set to null if not found.
+6. Set confidence: "high" if you found the person's actual email in results, "medium" if you found their name + role, "low" if information is uncertain.
 7. Return VALID JSON only. No markdown, no explanation, just JSON.`;
 
-export function buildExtractionPrompt(company, domain, snippets) {
+export function buildExtractionPrompt(company, domain, snippets, targetRole = 'key contact') {
   return `Company: ${company}
 Domain: ${domain}
+Looking for: ${targetRole}
 
 Search Results:
 ${snippets}
 
-Extract up to 5 HR/recruiting contacts from the above search results.
+Extract up to 5 contacts from the above search results who match or are relevant to: "${targetRole}".
+Prioritize people whose job title closely matches the target role.
+If no exact match is found, extract the most senior or relevant contacts available.
 
 Return JSON in this exact format:
 {
@@ -39,5 +43,5 @@ IMPORTANT:
 - "e" = set to null unless you saw the EXACT email in the search results. Do NOT fabricate emails.
 - "cf" = confidence: "high" if email was found in results, "medium" if name/role found but email was not, "low" if uncertain
 - "ph" = phone/mobile number if found, null otherwise
-- If you see no HR contacts at all, return: {"d":"${domain}","p":["firstname.lastname"],"c":[]}`;
+- If you find no contacts matching "${targetRole}", return: {"d":"${domain}","p":["firstname.lastname"],"c":[]}`;
 }

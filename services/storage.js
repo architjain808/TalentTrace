@@ -2,6 +2,82 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+// === User Roles ===
+export const USER_ROLES = [
+    {
+        id: 'job_seeker',
+        label: 'Job Seeker',
+        icon: '💼',
+        description: 'Looking for job opportunities at companies',
+        searchTarget: 'HR Manager, Recruiter, Talent Acquisition, Hiring Manager',
+        resultLabel: 'HR & recruiting contacts',
+    },
+    {
+        id: 'freelancer',
+        label: 'Freelancer / Consultant',
+        icon: '🎨',
+        description: 'Pitching your skills and services to businesses',
+        searchTarget: 'Marketing Manager, Creative Director, CMO, Head of Product, Brand Manager',
+        resultLabel: 'decision-maker contacts',
+    },
+    {
+        id: 'sales',
+        label: 'Sales / Business Dev',
+        icon: '📈',
+        description: 'Prospecting clients and closing B2B deals',
+        searchTarget: 'VP Sales, Head of Procurement, Operations Director, CTO, Founder',
+        resultLabel: 'sales decision-maker contacts',
+    },
+    {
+        id: 'startup_founder',
+        label: 'Startup Founder',
+        icon: '🚀',
+        description: 'Reaching partners, investors, or enterprise clients',
+        searchTarget: 'CEO, Founder, CTO, VP Engineering, Head of Partnerships',
+        resultLabel: 'leadership contacts',
+    },
+    {
+        id: 'marketing',
+        label: 'Marketing Professional',
+        icon: '📣',
+        description: 'Reaching brand and marketing decision-makers',
+        searchTarget: 'CMO, Marketing Manager, Brand Director, Growth Lead, Digital Marketing Head',
+        resultLabel: 'marketing contacts',
+    },
+    {
+        id: 'media_pr',
+        label: 'PR / Media',
+        icon: '📰',
+        description: 'Finding journalists, editors, and media contacts',
+        searchTarget: 'Editor, Journalist, Senior Reporter, Content Director, Media Contact',
+        resultLabel: 'media contacts',
+    },
+    {
+        id: 'recruiter',
+        label: 'Recruiter',
+        icon: '🔍',
+        description: 'Sourcing talent and candidates at companies',
+        searchTarget: 'Software Engineer, Product Manager, Designer, Senior Developer, Tech Lead',
+        resultLabel: 'candidate contacts',
+    },
+];
+
+const USER_ROLE_KEY = 'user_role_id';
+
+export async function saveUserRole(roleId) {
+    await AsyncStorage.setItem(USER_ROLE_KEY, roleId);
+}
+
+export async function getUserRole() {
+    const id = await AsyncStorage.getItem(USER_ROLE_KEY);
+    if (!id) return null;
+    return USER_ROLES.find((r) => r.id === id) || null;
+}
+
+export async function clearUserRole() {
+    await AsyncStorage.removeItem(USER_ROLE_KEY);
+}
+
 // === Secure Storage (API Keys) ===
 // expo-secure-store works on native; fallback to AsyncStorage on web
 export async function saveSecureKey(key, value) {

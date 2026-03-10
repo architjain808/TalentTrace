@@ -24,7 +24,7 @@ export default function HomeScreen() {
     const { theme, isDark, toggleTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('search');
     const {
-        results, loading, error, currentStep, steps, companyName, search, clearResults,
+        results, loading, error, currentStep, steps, companyName, activeRole, search, clearResults,
     } = useSearch();
 
     const handleSearch = async (company) => {
@@ -101,22 +101,27 @@ export default function HomeScreen() {
                         )}
 
                         {!loading && results.length > 0 && (
-                            <ResultsTable results={results} company={companyName} onSend={handleSend} />
+                            <ResultsTable
+                                results={results}
+                                company={companyName}
+                                onSend={handleSend}
+                                roleContext={activeRole}
+                            />
                         )}
 
                         {!loading && results.length === 0 && !error && currentStep < 0 && (
                             <View style={styles.emptyState}>
                                 <Text style={styles.emptyIcon}>🏢</Text>
-                                <Text style={[styles.emptyTitle, { color: theme.text }]}>Find HR Contacts</Text>
+                                <Text style={[styles.emptyTitle, { color: theme.text }]}>Find Anyone at Any Company</Text>
                                 <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
-                                    Enter a company name to find HR emails, verify them, and send cold emails — all from your device.
+                                    Enter a company name — AI finds the right contacts for your profile, verifies their emails, and lets you reach them directly.
                                 </Text>
                                 <View style={[styles.featureCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                                     {[
-                                        ['🔍', 'Google-powered search'],
-                                        ['🤖', 'AI-powered extraction'],
-                                        ['✅', 'Email verification on send'],
-                                        ['📧', 'One-click sending'],
+                                        ['🎯', 'AI-targeted contact discovery'],
+                                        ['🤖', 'Role-aware AI extraction'],
+                                        ['✅', 'DNS-verified email addresses'],
+                                        ['📧', 'Send from your Gmail in one tap'],
                                     ].map(([icon, label], i) => (
                                         <View key={i} style={[styles.featureRow, i < 3 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}>
                                             <Text style={styles.featureIcon}>{icon}</Text>

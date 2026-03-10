@@ -10,11 +10,12 @@ import {
     Platform,
     ActivityIndicator,
     KeyboardAvoidingView,
+    Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
-import { loadSettings, saveSettings } from '../services/storage';
+import { loadSettings, saveSettings, USER_ROLES, getUserRole, saveUserRole } from '../services/storage';
 import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured } from '../services/googleAuth';
 import { getUserProfile, updateQuotaBalance } from '../firebase/userCRUD';
 import { auth } from '../firebase/config';
@@ -36,21 +37,35 @@ export default function SettingsScreen() {
     const [quotaBalance, setQuotaBalance] = useState(0);
     const [addingQuota, setAddingQuota] = useState(false);
 
+    // Role State
+    const [currentRole, setCurrentRole] = useState(null);
+    const [showRolePicker, setShowRolePicker] = useState(false);
+
     useEffect(() => {
         (async () => {
             const s = await loadSettings();
             setModelName(s.openrouterModel || 'google/gemini-2.5-flash-lite');
             const authState = await getAuthState();
             setGoogleState(authState);
-            
+
             if (authState.isSignedIn && auth.currentUser) {
                 const profile = await getUserProfile(auth.currentUser.uid);
                 if (profile) setQuotaBalance(profile.quotaBalance || 0);
             }
-            
+
+            const role = await getUserRole();
+            setCurrentRole(role);
+
             setLoading(false);
         })();
     }, []);
+
+    const handleRoleChange = async (role) => {
+        await saveUserRole(role.id);
+        setCurrentRole(role);
+        setShowRolePicker(false);
+        showToast('success', 'Profile Updated', `Switched to: ${role.label}`);
+    };
 
     const handleGoogleSignIn = async () => {
         if (!isGoogleAuthConfigured()) {
@@ -131,6 +146,79 @@ export default function SettingsScreen() {
 
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+                    {/* ─── Your Profile (Role) ─── */}
+                    <Text style={[styles.section, { color: theme.text }]}>🎯 Your Profile</Text>
+                    <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                        <View style={styles.keyHeader}>
+                            <Text style={[styles.keyLabel, { color: theme.text }]}>Outreach Goal</Text>
+                            <Text style={[styles.keyDesc, { color: theme.textMuted, marginBottom: 0 }]}>
+                                Shapes the contacts we find for you
+                            </Text>
+                        </View>
+                        <TouchableOpacity
+                            style={[styles.roleRow, { borderColor: theme.border }]}
+                            onPress={() => setShowRolePicker(true)}
+                            activeOpacity={0.7}
+                        >
+                            {currentRole ? (
+                                <>
+                                    <Text style={styles.roleRowIcon}>{currentRole.icon}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.roleRowLabel, { color: theme.text }]}>{currentRole.label}</Text>
+                                        <Text style={[styles.roleRowDesc, { color: theme.textMuted }]}>{currentRole.description}</Text>
+                                    </View>
+                                </>
+                            ) : (
+                                <Text style={[styles.roleRowLabel, { color: theme.textMuted }]}>Not set — tap to choose</Text>
+                            )}
+                            <Text style={[styles.roleRowChevron, { color: theme.textMuted }]}>›</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Role Picker Modal */}
+                    <Modal
+                        visible={showRolePicker}
+                        animationType="slide"
+                        transparent
+                        onRequestClose={() => setShowRolePicker(false)}
+                    >
+                        <TouchableOpacity
+                            style={styles.modalBackdrop}
+                            activeOpacity={1}
+                            onPress={() => setShowRolePicker(false)}
+                        />
+                        <View style={[styles.modalSheet, { backgroundColor: theme.card }]}>
+                            <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
+                            <Text style={[styles.modalTitle, { color: theme.text }]}>Select Your Profile</Text>
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                {USER_ROLES.map((role) => {
+                                    const isActive = currentRole?.id === role.id;
+                                    return (
+                                        <TouchableOpacity
+                                            key={role.id}
+                                            style={[
+                                                styles.modalRoleRow,
+                                                { borderBottomColor: theme.border },
+                                                isActive && { backgroundColor: theme.accentLight },
+                                            ]}
+                                            onPress={() => handleRoleChange(role)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={styles.modalRoleIcon}>{role.icon}</Text>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.modalRoleLabel, { color: theme.text }]}>{role.label}</Text>
+                                                <Text style={[styles.modalRoleDesc, { color: theme.textMuted }]}>{role.description}</Text>
+                                            </View>
+                                            {isActive && (
+                                                <Text style={[styles.modalCheck, { color: theme.accent }]}>✓</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    </Modal>
 
                     {/* ─── Email Sending (Google) ─── */}
                     <Text style={[styles.section, { color: theme.text }]}>📧 Email Sending</Text>
@@ -286,6 +374,55 @@ const styles = StyleSheet.create({
         marginTop: 16,
     },
     saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+    // Role Picker
+    roleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginTop: 10,
+        gap: 10,
+    },
+    roleRowIcon: { fontSize: 22 },
+    roleRowLabel: { fontSize: 14, fontWeight: '600' },
+    roleRowDesc: { fontSize: 12, marginTop: 1 },
+    roleRowChevron: { fontSize: 22, fontWeight: '300' },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    modalSheet: {
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        paddingHorizontal: 20,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        maxHeight: '75%',
+    },
+    modalHandle: {
+        width: 36,
+        height: 4,
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginTop: 10,
+        marginBottom: 14,
+    },
+    modalTitle: { fontSize: 17, fontWeight: '700', marginBottom: 10 },
+    modalRoleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        gap: 12,
+        borderRadius: 8,
+        paddingHorizontal: 8,
+    },
+    modalRoleIcon: { fontSize: 22 },
+    modalRoleLabel: { fontSize: 14, fontWeight: '600' },
+    modalRoleDesc: { fontSize: 12, marginTop: 2 },
+    modalCheck: { fontSize: 18, fontWeight: '700' },
 
     // Google Sign-In
     googleBtn: {

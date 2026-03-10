@@ -5,14 +5,14 @@ import {
     buildExtractionPrompt,
 } from '../constants/prompts';
 
-export async function extractWithAI(company, domain, searchSnippets) {
+export async function extractWithAI(company, domain, searchSnippets, targetRole = 'key contact') {
     const key = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
     if (!key) throw new Error('EXPO_PUBLIC_OPENROUTER_API_KEY not configured in .env');
 
     const settings = await loadSettings();
     const model = settings.openrouterModel || 'google/gemini-2.5-flash-lite';
 
-    const prompt = buildExtractionPrompt(company, domain, searchSnippets);
+    const prompt = buildExtractionPrompt(company, domain, searchSnippets, targetRole);
 
     let res;
     try {
