@@ -36,6 +36,11 @@ All API keys are loaded via `EXPO_PUBLIC_*` env vars from a `.env` file (gitigno
 
 ## Architecture
 
+### Hooks (`hooks/`)
+
+- `useSearch.js` — orchestrates the 5-step search pipeline (see below)
+- `useSettings.js` — loads/saves app settings via `services/storage`; exposes `{ settings, loading, saving, updateSettings, persistSettings, resetSettings }`
+
 ### Search Pipeline (`hooks/useSearch.js`)
 
 The core 5-step pipeline orchestrated by `useSearch`:

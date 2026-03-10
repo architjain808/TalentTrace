@@ -3,21 +3,24 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Toast from '../components/Toast';
-import { areKeysConfigured } from '../services/storage';
+import { getAuthState } from '../services/googleAuth';
 import { ThemeProvider, useTheme } from '../constants/theme';
+
+const UNAUTHENTICATED_ROUTES = ['landing', 'setup'];
 
 function AppContent() {
     const [checking, setChecking] = useState(true);
-    const { theme, isDark } = useTheme();
+    const { theme } = useTheme();
     const router = useRouter();
     const segments = useSegments();
 
     useEffect(() => {
         (async () => {
             try {
-                const configured = await areKeysConfigured();
-                if (!configured && segments[0] !== 'setup') {
-                    router.replace('/setup');
+                const { isSignedIn } = await getAuthState();
+                const onPublicRoute = UNAUTHENTICATED_ROUTES.includes(segments[0]);
+                if (!isSignedIn && !onPublicRoute) {
+                    router.replace('/landing');
                 }
             } catch { }
             finally { setChecking(false); }
@@ -43,6 +46,7 @@ function AppContent() {
                     animation: 'fade',
                 }}
             >
+                <Stack.Screen name="landing" />
                 <Stack.Screen name="index" />
                 <Stack.Screen name="setup" />
                 <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />

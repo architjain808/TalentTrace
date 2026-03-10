@@ -82,6 +82,7 @@ export default function SettingsScreen() {
         setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
         setQuotaBalance(0);
         showToast('info', 'Signed Out', 'Google account disconnected.');
+        router.replace('/landing');
     };
 
     const handleSaveSettings = async () => {
