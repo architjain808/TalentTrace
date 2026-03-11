@@ -41,6 +41,7 @@ export default function ProgressSteps({ steps, currentStep }) {
 
     return (
         <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.heading, { color: theme.textMuted }]}>SCANNING</Text>
             {steps.map((step, i) => (
                 <StepItem key={i} label={step} index={i} currentStep={currentStep} />
             ))}
@@ -49,9 +50,10 @@ export default function ProgressSteps({ steps, currentStep }) {
 }
 
 const styles = StyleSheet.create({
-    container: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 20 },
-    stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 10 },
-    dot: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-    check: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    container: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 20 },
+    heading: { fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 12 },
+    stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 12 },
+    dot: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    check: { color: '#fff', fontSize: 11, fontWeight: '800' },
     label: { fontSize: 14, fontWeight: '500' },
 });

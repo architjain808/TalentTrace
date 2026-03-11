@@ -7,8 +7,11 @@ import { getAuthState } from '../services/googleAuth';
 import { getUserRole } from '../services/storage';
 import { ThemeProvider, useTheme } from '../constants/theme';
 
-// Routes that don't require auth or a role to be set
+// Routes that don't require auth
 const PUBLIC_ROUTES = ['landing', 'setup', 'role-select'];
+
+// Tab routes — treated as authenticated entry points
+const TAB_ROUTES = ['(tabs)', 'search', 'send', 'profile'];
 
 function AppContent() {
     const [checking, setChecking] = useState(true);
@@ -20,16 +23,17 @@ function AppContent() {
         (async () => {
             try {
                 const { isSignedIn } = await getAuthState();
-                const onPublicRoute = PUBLIC_ROUTES.includes(segments[0]);
+                const currentRoute = segments[0];
+                const onPublicRoute = PUBLIC_ROUTES.includes(currentRoute);
 
                 if (!isSignedIn) {
                     if (!onPublicRoute) router.replace('/landing');
                     return;
                 }
 
-                // Signed in — check if role has been selected
+                // Signed in — check role
                 const role = await getUserRole();
-                if (!role && segments[0] !== 'role-select') {
+                if (!role && currentRoute !== 'role-select') {
                     router.replace('/role-select');
                 }
             } catch { }
@@ -53,14 +57,20 @@ function AppContent() {
                 screenOptions={{
                     headerShown: false,
                     contentStyle: { backgroundColor: theme.bg },
-                    animation: 'fade',
+                    // §7.3 — Forward navigation: slide in from right, 350ms
+                    animation: 'slide_from_right',
+                    animationDuration: 350,
                 }}
             >
-                <Stack.Screen name="landing" />
+                {/* Landing uses full-screen dark bg — no animation flash */}
+                <Stack.Screen name="landing" options={{ animation: 'fade', animationDuration: 300 }} />
                 <Stack.Screen name="role-select" />
-                <Stack.Screen name="index" />
+                <Stack.Screen name="index" options={{ animation: 'none' }} />
+                {/* §7.3 — Tab switch: crossfade, no directional slide */}
+                <Stack.Screen name="(tabs)" options={{ animation: 'fade', animationDuration: 200 }} />
                 <Stack.Screen name="setup" />
-                <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+                {/* Templates screen — pushed from Profile */}
+                <Stack.Screen name="templates" />
                 <Stack.Screen name="+not-found" />
             </Stack>
             <Toast />
