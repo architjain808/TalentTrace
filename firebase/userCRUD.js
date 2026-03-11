@@ -115,3 +115,26 @@ export async function setQuotaBalance(uid, newBalance) {
         throw error;
     }
 }
+
+/**
+ * Updates the user's role in Firestore.
+ * 
+ * @param {string} uid - Firebase Auth user ID
+ * @param {string} roleId - The role ID to set
+ */
+export async function saveUserRoleToFirestore(uid, roleId) {
+    if (!uid) throw new Error("User ID is required");
+    if (!roleId) throw new Error("Role ID is required");
+
+    try {
+        const userRef = doc(db, USERS_COLLECTION, uid);
+        await updateDoc(userRef, {
+            role: roleId,
+            updatedAt: serverTimestamp()
+        });
+        console.log(`[UserCRUD] Role updated to ${roleId} for user ${uid}`);
+    } catch (error) {
+        console.error("[UserCRUD] Error saving user role:", error);
+        throw error;
+    }
+}

@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { findCompanyDomain, searchContacts } from '../services/search';
 import { extractWithAI, generateEmailCandidates } from '../services/extractor';
 import { validateContacts } from '../services/validator';
-import { getUserRole } from '../services/storage';
+import { getRoleById } from '../services/storage';
 import { auth as firebaseAuth } from '../firebase/config';
 import { updateQuotaBalance, getUserProfile } from '../firebase/userCRUD';
 
@@ -44,7 +44,7 @@ export function useSearch() {
             }
 
             // Load user role to drive targeted search
-            const role = await getUserRole();
+            const role = profile.role ? getRoleById(profile.role) : null;
             const targetRole = role?.searchTarget || 'key contact';
             setActiveRole(role);
 

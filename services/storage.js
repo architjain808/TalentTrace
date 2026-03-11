@@ -62,20 +62,9 @@ export const USER_ROLES = [
     },
 ];
 
-const USER_ROLE_KEY = 'user_role_id';
-
-export async function saveUserRole(roleId) {
-    await AsyncStorage.setItem(USER_ROLE_KEY, roleId);
-}
-
-export async function getUserRole() {
-    const id = await AsyncStorage.getItem(USER_ROLE_KEY);
+export function getRoleById(id) {
     if (!id) return null;
     return USER_ROLES.find((r) => r.id === id) || null;
-}
-
-export async function clearUserRole() {
-    await AsyncStorage.removeItem(USER_ROLE_KEY);
 }
 
 // === Secure Storage (API Keys) ===

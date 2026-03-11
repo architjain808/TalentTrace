@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { USER_ROLES, saveUserRole } from '../services/storage';
+import { USER_ROLES } from '../services/storage';
+import { saveUserRoleToFirestore } from '../firebase/userCRUD';
+import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 
@@ -25,7 +27,11 @@ export default function RoleSelectScreen() {
         if (!selectedId) return;
         setSaving(true);
         try {
-            await saveUserRole(selectedId);
+            // Sync with Firebase if user is logged in
+            if (auth.currentUser) {
+                await saveUserRoleToFirestore(auth.currentUser.uid, selectedId);
+            }
+            
             const role = USER_ROLES.find((r) => r.id === selectedId);
             showToast('success', 'Profile Set', `You are set up as: ${role.label}`);
             router.replace('/');

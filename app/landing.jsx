@@ -11,7 +11,9 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { signInWithGoogle } from '../services/googleAuth';
-import { getUserRole } from '../services/storage';
+import { USER_ROLES } from '../services/storage';
+import { getUserProfile } from '../firebase/userCRUD';
+import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 
@@ -25,9 +27,17 @@ export default function LandingScreen() {
         try {
             const result = await signInWithGoogle();
             showToast('success', 'Signed In!', `Welcome, ${result.userName || result.userEmail}`);
-            // Route to role selection if no role has been set yet
-            const existingRole = await getUserRole();
-            router.replace(existingRole ? '/' : '/role-select');
+            
+            // Check Firebase for existing role
+            let hasRole = false;
+            if (auth.currentUser) {
+                const profile = await getUserProfile(auth.currentUser.uid);
+                if (profile && profile.role) {
+                    hasRole = true;
+                }
+            }
+
+            router.replace(hasRole ? '/' : '/role-select');
         } catch (err) {
             console.error(err);
             if (err.code !== 'ASYNC_OP_IN_PROGRESS' && err.code !== 'SIGN_IN_CANCELLED') {

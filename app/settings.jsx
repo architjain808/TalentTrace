@@ -15,9 +15,9 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
-import { loadSettings, saveSettings, USER_ROLES, getUserRole, saveUserRole } from '../services/storage';
+import { loadSettings, saveSettings, USER_ROLES, getRoleById } from '../services/storage';
 import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured } from '../services/googleAuth';
-import { getUserProfile, updateQuotaBalance } from '../firebase/userCRUD';
+import { getUserProfile, updateQuotaBalance, saveUserRoleToFirestore } from '../firebase/userCRUD';
 import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
@@ -50,18 +50,26 @@ export default function SettingsScreen() {
 
             if (authState.isSignedIn && auth.currentUser) {
                 const profile = await getUserProfile(auth.currentUser.uid);
-                if (profile) setQuotaBalance(profile.quotaBalance || 0);
+                if (profile) {
+                    setQuotaBalance(profile.quotaBalance || 0);
+                    if (profile.role) {
+                        setCurrentRole(getRoleById(profile.role));
+                    }
+                }
             }
-
-            const role = await getUserRole();
-            setCurrentRole(role);
 
             setLoading(false);
         })();
     }, []);
 
     const handleRoleChange = async (role) => {
-        await saveUserRole(role.id);
+        if (auth.currentUser) {
+            try {
+                await saveUserRoleToFirestore(auth.currentUser.uid, role.id);
+            } catch (err) {
+                console.error("Failed to sync role to Firebase:", err);
+            }
+        }
         setCurrentRole(role);
         setShowRolePicker(false);
         showToast('success', 'Profile Updated', `Switched to: ${role.label}`);

@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { signInWithGoogle } from '../services/googleAuth';
+import { getUserProfile } from '../firebase/userCRUD';
+import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme } from '../constants/theme';
 
@@ -40,9 +42,21 @@ export default function SetupScreen() {
         }
     };
 
-    const handleFinish = () => {
-        showToast('success', 'Setup Complete!', 'You\'re ready to find HR contacts.');
-        router.replace('/');
+    const handleFinish = async () => {
+        let hasRole = false;
+        if (auth.currentUser) {
+            const profile = await getUserProfile(auth.currentUser.uid);
+            if (profile && profile.role) {
+                hasRole = true;
+            }
+        }
+
+        if (hasRole) {
+            showToast('success', 'Setup Complete!', 'You\'re ready to find HR contacts.');
+            router.replace('/');
+        } else {
+            router.replace('/role-select');
+        }
     };
 
     const handleSkip = () => {
