@@ -1,88 +1,87 @@
-import axios from 'axios';
-import { getSecureKey } from './storage';
+const SERPER_API_KEY = process.env.EXPO_PUBLIC_SERPER_API_KEY;
 
+const DOMAIN_BLACKLIST = [
+  'linkedin.com', 'facebook.com', 'twitter.com', 'x.com',
+  'wikipedia.org', 'crunchbase.com', 'glassdoor.com', 'indeed.com',
+  'zoominfo.com', 'bloomberg.com', 'reuters.com', 'yelp.com',
+  'bbb.org', 'instagram.com', 'youtube.com', 'tiktok.com',
+  'github.com', 'medium.com', 'reddit.com', 'quora.com',
+  'trustpilot.com', 'g2.com', 'capterra.com', 'ambitionbox.com',
+  'naukri.com', 'apollo.io', 'rocketreach.co', 'signalhire.com',
+  'pinterest.com', 'britannica.com', 'forbes.com',
+];
+
+/**
+ * Serper helper — used for all Google Search API calls.
+ * NEVER put quotes or @ symbol in the query — Serper returns 400.
+ */
+async function serperSearch(query, num = 10) {
+  if (!SERPER_API_KEY) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
+  try {
+    const response = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': SERPER_API_KEY,
+      },
+      body: JSON.stringify({ q: query, num }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error(`Serper ${response.status}: ${errText}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.organic || [];
+  } catch (error) {
+    console.error('Serper error:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Find the company's domain from Google search results.
+ * Iterates all results, skips blacklisted domains (LinkedIn, Wikipedia, etc.)
+ */
 export async function findCompanyDomain(company) {
-    const key = process.env.EXPO_PUBLIC_SERPER_API_KEY;
-    if (!key) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
+  const results = await serperSearch(`${company} official website`, 3);
 
-    const res = await axios.post(
-        'https://google.serper.dev/search',
-        { q: `${company} official website`, num: 3 },
-        {
-            headers: {
-                'X-API-KEY': key,
-                'Content-Type': 'application/json',
-            },
-        }
-    );
-
-    const url = res.data.organic?.[0]?.link || '';
-    if (!url) throw new Error('No results found for this company. Try a different name.');
-
+  for (const result of results) {
     try {
-        return new URL(url).hostname.replace('www.', '');
-    } catch {
-        throw new Error('Could not determine company domain.');
+      const hostname = new URL(result.link).hostname.replace(/^www\./, '');
+      const isBlacklisted = DOMAIN_BLACKLIST.some(b => hostname.includes(b));
+      if (!isBlacklisted && hostname.includes('.')) {
+        return hostname;
+      }
+    } catch (e) {
+      continue; // Invalid URL, skip
     }
+  }
+
+  // Fallback: guess domain from company name, verify with MX
+  const guess = company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+  try {
+    const mxRes = await fetch(`https://dns.google/resolve?name=${guess}&type=MX`);
+    const mxData = await mxRes.json();
+    if (mxData.Status === 0 && mxData.Answer?.length > 0) {
+      return guess;
+    }
+  } catch (e) {}
+
+  return null; // Could not determine domain
 }
 
-export async function searchContacts(company, domain, targetRole = 'key contact') {
-    const key = process.env.EXPO_PUBLIC_SERPER_API_KEY;
-    if (!key) throw new Error('EXPO_PUBLIC_SERPER_API_KEY not configured in .env');
-
-    // Two focused queries — both parameterized by targetRole
-    const [peopleRes, patternRes] = await Promise.all([
-        // Query 1: Find people matching the target role on LinkedIn
-        axios.post(
-            'https://google.serper.dev/search',
-            {
-                q: `${company} ${targetRole} site:linkedin.com/in`,
-                num: 10,
-            },
-            {
-                headers: {
-                    'X-API-KEY': key,
-                    'Content-Type': 'application/json',
-                },
-            }
-        ),
-        // Query 2: Find email pattern + contact info for the target role
-        axios.post(
-            'https://google.serper.dev/search',
-            {
-                q: `${company} ${domain} ${targetRole} email contact`,
-                num: 10,
-            },
-            {
-                headers: {
-                    'X-API-KEY': key,
-                    'Content-Type': 'application/json',
-                },
-            }
-        ),
-    ]);
-
-    const peopleItems = peopleRes.data.organic || [];
-    const patternItems = patternRes.data.organic || [];
-
-    // Deduplicate by URL
-    const seen = new Set();
-    const allItems = [];
-    for (const item of [...peopleItems, ...patternItems]) {
-        if (!seen.has(item.link)) {
-            seen.add(item.link);
-            allItems.push(item);
-        }
-    }
-
-    // Include link URL so AI can extract LinkedIn profiles
-    const snippets = allItems
-        .map((item) => `${item.title}: ${item.snippet} [URL: ${item.link}]`)
-        .join('\n');
-
-    if (!snippets) throw new Error('No contacts found in search results.');
-    return snippets;
+/**
+ * Search for people at a company matching the target role.
+ * Returns raw Serper results for AI processing.
+ * NEVER use quotes or @ in query — Serper returns 400.
+ */
+export async function searchPeople(company, targetRole) {
+  const results = await serperSearch(
+    `${company} ${targetRole} site:linkedin.com/in`,
+    10
+  );
+  return results;
 }
-
-// Keep old name as alias so nothing breaks if imported elsewhere
-export const searchHRContacts = searchContacts;

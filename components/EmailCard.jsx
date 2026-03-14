@@ -45,9 +45,17 @@ export default function EmailCard({ contact, onSend, company }) {
     const [body, setBody]             = useState('');
 
     const contactData = { name: contact.name, company, role: contact.role, email: contact.email };
-    const confidence  = CONFIDENCE[contact.confidence] || CONFIDENCE.medium;
     const isInvalid   = contact.validation && !contact.validation.valid;
     const hasLinkedin = contact.linkedin && contact.linkedin !== 'null';
+
+    // Badge: new pipeline uses verified field; old pipeline falls back to confidence
+    const badge = contact.verified !== undefined
+        ? (contact.email && contact.verified
+            ? { color: C.success,  bg: C.successBg, label: 'Verified'  }
+            : contact.email
+                ? { color: C.warning,  bg: C.warningBg, label: 'Unverified' }
+                : { color: C.danger,   bg: C.dangerBg,  label: 'No Email'   })
+        : (CONFIDENCE[contact.confidence] || CONFIDENCE.medium);
     const hasPhone    = contact.phone    && contact.phone    !== 'null';
 
     // Initials from name
@@ -86,11 +94,11 @@ export default function EmailCard({ contact, onSend, company }) {
                     <Text style={styles.contactName} numberOfLines={1}>{contact.name}</Text>
                     <Text style={styles.contactRole} numberOfLines={1}>{contact.role}</Text>
                 </View>
-                {/* Confidence badge — colored dot + label (§4.3 no emoji) */}
-                <View style={[styles.confidenceBadge, { backgroundColor: confidence.bg }]}>
-                    <View style={[styles.confidenceDot, { backgroundColor: confidence.color }]} />
-                    <Text style={[styles.confidenceLabel, { color: confidence.color }]}>
-                        {confidence.label}
+                {/* Verification badge */}
+                <View style={[styles.confidenceBadge, { backgroundColor: badge.bg }]}>
+                    <View style={[styles.confidenceDot, { backgroundColor: badge.color }]} />
+                    <Text style={[styles.confidenceLabel, { color: badge.color }]}>
+                        {badge.label}
                     </Text>
                 </View>
             </View>
@@ -101,7 +109,7 @@ export default function EmailCard({ contact, onSend, company }) {
                     <Mail size={14} color={C.primary} strokeWidth={1.5} />
                 </View>
                 <Text style={styles.emailText} numberOfLines={1}>
-                    {contact.email || 'No email found'}
+                    {contact.email || 'Email not found'}
                 </Text>
             </View>
 

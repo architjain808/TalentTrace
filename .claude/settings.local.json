@@ -20,7 +20,8 @@
       "Bash(npx babel:*)",
       "Bash(npx acorn:*)",
       "Bash(wc -l app/landing.jsx app/\"\\(tabs\\)\"/_layout.jsx app/\"\\(tabs\\)\"/search.jsx app/\"\\(tabs\\)\"/send.jsx app/\"\\(tabs\\)\"/profile.jsx constants/theme.js)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(cd:*)"
     ]
   }
 }

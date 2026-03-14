@@ -27,7 +27,7 @@ export default function SettingsScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const { settings } = useSettings();
-    const [modelName, setModelName] = useState('google/gemini-2.5-flash-lite');
+    const [modelName, setModelName] = useState('google/gemini-2.5-flash');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null });
@@ -44,7 +44,7 @@ export default function SettingsScreen() {
     useEffect(() => {
         (async () => {
             const s = await loadSettings();
-            setModelName(s.openrouterModel || 'google/gemini-2.5-flash-lite');
+            setModelName(s.openrouterModel || 'google/gemini-2.5-flash');
             const authState = await getAuthState();
             setGoogleState(authState);
 
@@ -112,7 +112,7 @@ export default function SettingsScreen() {
         setSaving(true);
         try {
             const currentSettings = await loadSettings();
-            await saveSettings({ ...currentSettings, openrouterModel: modelName.trim() || 'google/gemini-2.5-flash-lite' });
+            await saveSettings({ ...currentSettings, openrouterModel: modelName.trim() || 'google/gemini-2.5-flash' });
             showToast('success', 'Settings Saved', 'Your settings have been updated.');
         } catch {
             showToast('error', 'Error', 'Failed to save settings.');
@@ -310,7 +310,7 @@ export default function SettingsScreen() {
                             style={[styles.keyInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                             value={modelName}
                             onChangeText={setModelName}
-                            placeholder="google/gemini-2.5-flash-lite"
+                            placeholder="google/gemini-2.5-flash"
                             placeholderTextColor={theme.textMuted}
                             autoCapitalize="none"
                             autoCorrect={false}

@@ -1,181 +1,189 @@
-import axios from 'axios';
-import { getSecureKey, loadSettings } from './storage';
-import {
-    EXTRACTION_SYSTEM_PROMPT,
-    buildExtractionPrompt,
-} from '../constants/prompts';
-
-export async function extractWithAI(company, domain, searchSnippets, targetRole = 'key contact') {
-    const key = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
-    if (!key) throw new Error('EXPO_PUBLIC_OPENROUTER_API_KEY not configured in .env');
-
-    const settings = await loadSettings();
-    const model = settings.openrouterModel || 'google/gemini-2.5-flash-lite';
-
-    const prompt = buildExtractionPrompt(company, domain, searchSnippets, targetRole);
-
-    let res;
-    try {
-        res = await axios.post(
-            'https://openrouter.ai/api/v1/chat/completions',
-            {
-                model,
-                temperature: 0.1,
-                max_tokens: 1200,
-                messages: [
-                    { role: 'system', content: EXTRACTION_SYSTEM_PROMPT },
-                    { role: 'user', content: prompt },
-                ],
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${key}`,
-                    'Content-Type': 'application/json',
-                },
-            }
-        );
-    } catch (err) {
-        const status = err.response?.status;
-        const msg = err.response?.data?.error?.message || err.message;
-        if (status === 429) {
-            throw new Error('Rate limited. Please wait a moment and try again.');
-        }
-        if (status === 404) {
-            throw new Error(
-                `Model "${model}" not found. ${model.includes(':free') ? 'For free models: go to openrouter.ai/settings/privacy and enable both privacy toggles. ' : ''}Try a different model in Settings.`
-            );
-        }
-        throw new Error(`AI error: ${msg}`);
-    }
-
-    const text = res.data.choices[0].message.content;
-
-    try {
-        let cleaned = text.replace(/```json|```/g, '').trim();
-        // If JSON was truncated, try to salvage it
-        if (!cleaned.endsWith('}')) {
-            // Remove last incomplete object/entry
-            const lastComplete = cleaned.lastIndexOf('},');
-            if (lastComplete > 0) {
-                cleaned = cleaned.substring(0, lastComplete + 1);
-                // Close arrays and object
-                if (!cleaned.includes(']}')) cleaned += ']}';
-                else cleaned += '}';
-            }
-        }
-        const raw = JSON.parse(cleaned);
-        return {
-            domain: raw.d || raw.domain || domain,
-            patterns: raw.p || raw.patterns || ['firstname.lastname'],
-            people: (raw.c || raw.people || []).slice(0, 5).map((c) => ({
-                name: c.n || c.name || '',
-                role: c.r || c.role || '',
-                email: c.e || c.email || null,
-                linkedin: c.l || c.linkedin || null,
-                phone: c.ph || c.phone || null,
-                confidence: c.cf || c.confidence || 'medium',
-            })),
-        };
-    } catch {
-        return { domain, patterns: ['firstname.lastname'], people: [] };
-    }
-}
-
-// Common email patterns used by companies, ordered by popularity
-const COMMON_PATTERNS = [
-    'firstname.lastname',    // john.doe@company.com (most common)
-    'firstname_lastname',    // john_doe@company.com
-    'firstnamelastname',     // johndoe@company.com
-    'flastname',             // jdoe@company.com
-    'firstname',             // john@company.com
-    'firstname.l',           // john.d@company.com
-    'f.lastname',            // j.doe@company.com
-    'lastname.firstname',    // doe.john@company.com
-    'firstnamel',            // johnd@company.com
-];
+const OPENROUTER_API_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
 
 /**
- * Parse a person's name into first name and last name, handling multi-word names
+ * Parse search results to extract person names, roles, and LinkedIn URLs.
+ * First extracts LinkedIn URLs via regex (100% accurate).
+ * Then uses Gemini to extract names + roles from snippets.
+ *
+ * @param {Array} serperResults - Raw results from Serper
+ * @param {string} company - Company name
+ * @param {string} targetRole - Role being searched for
+ * @param {string} selectedModel - OpenRouter model ID
+ * @returns {Array} [{ name, role, linkedin, source }]
  */
-function parseName(fullName) {
-    const parts = fullName.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return { first: '', last: '' };
-    if (parts.length === 1) return { first: parts[0], last: '' };
+export async function extractPeople(serperResults, company, targetRole, selectedModel) {
+  if (!OPENROUTER_API_KEY) throw new Error('EXPO_PUBLIC_OPENROUTER_API_KEY not configured in .env');
 
-    // First name is always the first word
-    const first = parts[0];
-    // Last name is the LAST word (skip middle names, prefixes like "van", "de", etc.)
-    const last = parts[parts.length - 1];
+  // === REGEX EXTRACTION (free, instant, no hallucination) ===
 
-    return { first, last };
-}
+  // Extract LinkedIn URLs directly from search result links
+  const linkedinProfiles = [];
+  for (const result of serperResults) {
+    if (result.link && result.link.includes('linkedin.com/in/')) {
+      linkedinProfiles.push({
+        url: result.link,
+        title: result.title || '',
+        snippet: result.snippet || '',
+      });
+    }
+  }
 
-/**
- * Apply an email pattern template to a name
- */
-function applyPattern(pattern, first, last, domain) {
-    if (!first) return null;
+  // Build snippets string for Gemini
+  const snippets = serperResults
+    .map(r => `${r.title || ''}: ${r.snippet || ''} [URL: ${r.link || ''}]`)
+    .join('\n');
 
-    const email = pattern
-        .replace('firstname', first)
-        .replace('lastname', last)
-        .replace(/\bflastname\b/, `${first[0]}${last}`)
-        .replace(/\bfirstnamel\b/, `${first}${last ? last[0] : ''}`)
-        .replace(/\bfirstname\.l\b/, `${first}.${last ? last[0] : ''}`)
-        .replace(/\bf\.lastname\b/, `${first[0]}.${last}`)
-        .replace(/\blastname\.firstname\b/, `${last}.${first}`)
-        .replace(/\bfirstnamelastname\b/, `${first}${last}`);
+  if (!snippets.trim()) {
+    return [];
+  }
 
-    // Don't generate if it still contains template variables
-    if (/firstname|lastname/.test(email)) return null;
-    // Don't generate if last name was needed but missing
-    if (!last && pattern.includes('last')) return null;
+  // === GEMINI EXTRACTION (names + roles only) ===
 
-    return email.includes('@') ? email : `${email}@${domain}`;
-}
+  const systemPrompt = `You extract person names and job titles from LinkedIn search results.
+You NEVER extract or generate email addresses — that is handled by other code.
 
-export function generateEmailCandidates(extracted) {
-    const { domain, patterns = [], people = [] } = extracted;
+RULES:
+1. Only return a person if their full name appears in a snippet AND is associated with "${company}".
+2. If a snippet shows "J. Smith" without a full first name, return "J. Smith" exactly — do NOT guess.
+3. Each contact MUST have a "src" field: a short phrase (max 10 words) from the snippet proving this person exists. No source = do not include.
+4. EMPTY IS CORRECT. Return {"c":[]} if no people found. Never fabricate.
+5. Return VALID JSON only. No markdown code blocks, no explanation, just raw JSON.`;
 
-    // Merge AI-detected patterns with common ones, AI patterns first (higher priority)
-    const allPatterns = [...new Set([...patterns, ...COMMON_PATTERNS])];
+  const userPrompt = `Company: ${company}
+Target Role: ${targetRole}
 
-    return people.map((person) => {
-        // If AI found an actual email in search results, trust it
-        if (person.email && person.email !== 'null' && person.email !== null
-            && !['null', 'email', 'undefined'].includes(person.email.toLowerCase())) {
-            return {
-                ...person,
-                emailCandidates: [person.email],
-                confidence: person.confidence || 'high',
-            };
-        }
+=== SEARCH RESULTS ===
+${snippets}
+=== END ===
 
-        const { first, last } = parseName(person.name);
+Find up to 5 people who work at "${company}" in or near the "${targetRole}" role.
 
-        if (!first) {
-            return {
-                ...person,
-                email: null,
-                emailCandidates: [],
-                confidence: 'low',
-            };
-        }
+Return ONLY this JSON structure (no markdown, no backticks):
+{"c":[{"n":"Full Name","r":"Job Title","cf":"medium","src":"phrase from snippet"}]}
 
-        // Generate candidates from all patterns
-        const candidates = allPatterns
-            .map((p) => applyPattern(p, first, last, domain))
-            .filter(Boolean);
+Return {"c":[]} if none found.`;
 
-        // Remove duplicates
-        const unique = [...new Set(candidates)];
-
-        return {
-            ...person,
-            email: unique[0] || `${first}@${domain}`,
-            emailCandidates: unique,
-            // If email was generated from patterns, confidence is medium at best
-            confidence: person.confidence === 'high' ? 'medium' : (person.confidence || 'medium'),
-        };
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: selectedModel || 'google/gemini-2.5-flash',
+        temperature: 0.0,
+        max_tokens: 1200,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+      }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      const status = response.status;
+      if (status === 429) throw new Error('Rate limited. Please wait a moment and try again.');
+      if (status === 404) throw new Error(`Model "${selectedModel}" not found. Try a different model in Settings.`);
+      throw new Error(`AI error ${status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    let text = data.choices?.[0]?.message?.content || '';
+
+    // Strip markdown code blocks if present
+    text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+    // Parse JSON
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      // Truncation recovery: find last complete object
+      const lastBrace = text.lastIndexOf('},');
+      if (lastBrace > 0) {
+        try { parsed = JSON.parse(text.substring(0, lastBrace + 1) + ']}'); } catch (e2) {}
+      }
+    }
+
+    if (!parsed) return [];
+
+    const contacts = parsed.c || parsed.contacts || [];
+    const snippetsLower = snippets.toLowerCase();
+
+    // Validate each contact: src must exist in actual snippets
+    const validContacts = contacts.filter(c => {
+      const name = c.n || c.name;
+      const src = c.src || c.source;
+      if (!name || name.length < 2) return false;
+      if (!src || src.length < 5) return false;
+      const phrase = src.trim().split(/\s+/).slice(0, 3).join(' ').toLowerCase();
+      return snippetsLower.includes(phrase);
+    });
+
+    // Merge with LinkedIn URLs
+    return validContacts.map(c => {
+      const name = c.n || c.name;
+      const role = c.r || c.role;
+      const nameParts = name.toLowerCase().split(/\s+/);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts[nameParts.length - 1] || '';
+
+      // Match to LinkedIn profile
+      let linkedin = null;
+
+      // Strategy 1: LinkedIn title contains both name parts
+      const liMatch = linkedinProfiles.find(li => {
+        const t = li.title.toLowerCase();
+        return t.includes(firstName) && t.includes(lastName);
+      });
+      if (liMatch) {
+        linkedin = liMatch.url;
+      } else {
+        // Strategy 2: LinkedIn URL slug contains name
+        const slugMatch = linkedinProfiles.find(li => {
+          const slug = (li.url.split('/in/')[1] || '').toLowerCase().replace(/[-_]/g, '');
+          return slug.includes(firstName) || (lastName.length > 3 && slug.includes(lastName));
+        });
+        if (slugMatch) linkedin = slugMatch.url;
+      }
+
+      return {
+        name,
+        role,
+        linkedin,
+        source: c.src || c.source,
+      };
+    });
+  } catch (error) {
+    console.error('AI extraction error:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Parse a full name into first and last name.
+ * Handles titles (Dr, Mr), suffixes (Jr, PhD), diacritics (José → jose).
+ */
+export function parseName(fullName) {
+  if (!fullName) return null;
+  let parts = fullName.trim().split(/\s+/);
+  if (parts.length < 2) return null;
+
+  const PREFIXES = ['mr', 'mrs', 'ms', 'dr', 'prof', 'sir', 'eng'];
+  const SUFFIXES = ['jr', 'jr.', 'sr', 'sr.', 'ii', 'iii', 'iv', 'phd', 'md', 'esq', 'mba'];
+
+  if (PREFIXES.includes(parts[0].toLowerCase().replace('.', ''))) parts.shift();
+  if (parts.length > 1 && SUFFIXES.includes(parts[parts.length - 1].toLowerCase().replace('.', ''))) parts.pop();
+  if (parts.length < 2) return null;
+
+  // Normalize: remove diacritics, lowercase
+  const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  return {
+    first: normalize(parts[0]),
+    last: normalize(parts[parts.length - 1]),
+    original: fullName,
+  };
 }
