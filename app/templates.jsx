@@ -349,28 +349,6 @@ function TemplateEditor({ template, onSave, onCancel }) {
 
                             <View style={[editor.toolDivider, { backgroundColor: C.surfaceLight }]} />
 
-                            {/* Target toggle: Subj / Body */}
-                            <View style={editor.targetToggle}>
-                                <TouchableOpacity
-                                    style={[editor.targetBtn, isSubjectActive && editor.targetBtnActive]}
-                                    onPress={() => { setActiveTarget('subject'); subjectRef.current?.focus(); }}
-                                    activeOpacity={0.75}
-                                >
-                                    <Text style={[editor.targetBtnText, { color: isSubjectActive ? C.accent : C.textSecondary }]}>
-                                        Subj
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[editor.targetBtn, isBodyActive && editor.targetBtnActive]}
-                                    onPress={() => { setActiveTarget('body'); bodyRef.current?.focus(); }}
-                                    activeOpacity={0.75}
-                                >
-                                    <Text style={[editor.targetBtnText, { color: isBodyActive ? C.accent : C.textSecondary }]}>
-                                        Body
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-
                             {/* Variable chips */}
                             <ScrollView
                                 horizontal
@@ -869,31 +847,6 @@ const editor = StyleSheet.create({
         height: 18,
         marginHorizontal: 4,
         borderRadius: 1,
-    },
-
-    // Subject / Body target toggle
-    targetToggle: {
-        flexDirection: 'row',
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: C.surfaceLight,
-        overflow: 'hidden',
-        marginRight: 6,
-    },
-    targetBtn: {
-        paddingHorizontal: 9,
-        paddingVertical: 6,
-        minWidth: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    targetBtnActive: {
-        backgroundColor: C.primaryDark,
-    },
-    targetBtnText: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 0.2,
     },
 
     chipRow: {

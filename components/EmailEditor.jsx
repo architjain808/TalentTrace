@@ -215,7 +215,6 @@ export default function EmailEditor({
     // COMPOSE MODE
     // ══════════════════════════════════════════════════════════════════════════
     if (mode === 'compose') {
-        const isBodyActive    = activeTarget === 'body'    && !showPreview;
         const isSubjectActive = activeTarget === 'subject' && !showPreview;
 
         return (
@@ -297,40 +296,6 @@ export default function EmailEditor({
 
                                 <View style={[styles.toolbarSep, { backgroundColor: theme.cardBorder }]} />
 
-                                {/* Target toggle: where chips insert */}
-                                <View style={[styles.targetToggle, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.targetToggleBtn,
-                                            isSubjectActive && { backgroundColor: DS.primaryDark },
-                                        ]}
-                                        onPress={() => { setActiveTarget('subject'); subjectRef.current?.focus(); }}
-                                        activeOpacity={0.75}
-                                    >
-                                        <Text style={[
-                                            styles.targetToggleBtnText,
-                                            { color: isSubjectActive ? DS.accent : theme.textMuted },
-                                        ]}>
-                                            Subj
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.targetToggleBtn,
-                                            isBodyActive && { backgroundColor: DS.primaryDark },
-                                        ]}
-                                        onPress={() => { setActiveTarget('body'); bodyRef.current?.focus(); }}
-                                        activeOpacity={0.75}
-                                    >
-                                        <Text style={[
-                                            styles.targetToggleBtnText,
-                                            { color: isBodyActive ? DS.accent : theme.textMuted },
-                                        ]}>
-                                            Body
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-
                                 {/* Variable chip scroll */}
                                 <ScrollView
                                     horizontal
@@ -352,11 +317,7 @@ export default function EmailEditor({
                             {/* Body TextInput */}
                             <TextInput
                                 ref={bodyRef}
-                                style={[
-                                    styles.bodyInput,
-                                    { color: theme.text },
-                                    isBodyActive && styles.bodyInputFocused,
-                                ]}
+                                style={[styles.bodyInput, { color: theme.text }]}
                                 value={body}
                                 onChangeText={handleBodyChange}
                                 placeholder={`Hi {{name}},\n\nI came across {{company}} and wanted to reach out about opportunities on your team...`}
@@ -904,26 +865,6 @@ const styles = StyleSheet.create({
         borderRadius: 1,
     },
 
-    // Target toggle (Subj / Body)
-    targetToggle: {
-        flexDirection: 'row',
-        borderRadius: 8,
-        borderWidth: 1,
-        overflow: 'hidden',
-        marginRight: 6,
-    },
-    targetToggleBtn: {
-        paddingHorizontal: 9,
-        paddingVertical: 6,
-        minWidth: 38,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    targetToggleBtnText: {
-        fontSize: 11,
-        fontWeight: '700',
-        letterSpacing: 0.2,
-    },
 
     // Variable chips
     varChipScroll: {
