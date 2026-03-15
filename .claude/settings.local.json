@@ -21,7 +21,12 @@
       "Bash(npx acorn:*)",
       "Bash(wc -l app/landing.jsx app/\"\\(tabs\\)\"/_layout.jsx app/\"\\(tabs\\)\"/search.jsx app/\"\\(tabs\\)\"/send.jsx app/\"\\(tabs\\)\"/profile.jsx constants/theme.js)",
       "Bash(npx expo:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Read(//c/Users/lenovo/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.0.1/**)",
+      "Bash(python scripts/search.py \"mobile email template editor SaaS outreach premium professional\" --design-system -p \"TalentTrace\" -f markdown)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "Bash(python:*)"
     ]
   }
 }

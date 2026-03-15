@@ -20,7 +20,8 @@ import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthC
 import { getUserProfile, updateQuotaBalance, saveUserRoleToFirestore } from '../firebase/userCRUD';
 import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
-import { useTheme } from '../constants/theme';
+import { useTheme, DS } from '../constants/theme';
+import { Target, Mail, FileText, Bot, ChevronRight } from 'lucide-react-native';
 import EmailEditor from '../components/EmailEditor';
 
 export default function SettingsScreen() {
@@ -156,7 +157,7 @@ export default function SettingsScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
                     {/* ─── Your Profile (Role) ─── */}
-                    <Text style={[styles.section, { color: theme.text }]}>🎯 Your Profile</Text>
+                    <SectionHeader icon={<Target size={15} color={DS.accent} strokeWidth={2} />} label="Your Profile" />
                     <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                         <View style={styles.keyHeader}>
                             <Text style={[styles.keyLabel, { color: theme.text }]}>Outreach Goal</Text>
@@ -219,7 +220,9 @@ export default function SettingsScreen() {
                                                 <Text style={[styles.modalRoleDesc, { color: theme.textMuted }]}>{role.description}</Text>
                                             </View>
                                             {isActive && (
-                                                <Text style={[styles.modalCheck, { color: theme.accent }]}>✓</Text>
+                                                <View style={[styles.modalCheckBox, { backgroundColor: DS.primaryDark }]}>
+                                                    <ChevronRight size={12} color={DS.accent} strokeWidth={3} />
+                                                </View>
                                             )}
                                         </TouchableOpacity>
                                     );
@@ -229,7 +232,7 @@ export default function SettingsScreen() {
                     </Modal>
 
                     {/* ─── Email Sending (Google) ─── */}
-                    <Text style={[styles.section, { color: theme.text }]}>📧 Email Sending</Text>
+                    <SectionHeader icon={<Mail size={15} color={DS.accent} strokeWidth={2} />} label="Email Sending" />
 
                     <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                         <View style={styles.keyHeader}>
@@ -296,11 +299,11 @@ export default function SettingsScreen() {
                     </View>
 
                     {/* ─── Email Templates ─── */}
-                    <Text style={[styles.section, { color: theme.text }]}>📝 Email Templates</Text>
+                    <SectionHeader icon={<FileText size={15} color={DS.accent} strokeWidth={2} />} label="Email Templates" />
                     <EmailEditor mode="manage" />
 
                     {/* ─── AI Model ─── */}
-                    <Text style={[styles.section, { color: theme.text, marginTop: 24 }]}>🤖 AI Model</Text>
+                    <SectionHeader icon={<Bot size={15} color={DS.accent} strokeWidth={2} />} label="AI Model" style={{ marginTop: 24 }} />
                     <View style={[styles.keyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
                         <View style={styles.keyHeader}>
                             <Text style={[styles.keyLabel, { color: theme.text }]}>OpenRouter Model</Text>
@@ -337,6 +340,43 @@ export default function SettingsScreen() {
     );
 }
 
+// ─── Section Header component ─────────────────────────────────────────────────
+function SectionHeader({ icon, label, style }) {
+    const { theme } = useTheme();
+    return (
+        <View style={[sectionHeaderStyles.row, style]}>
+            <View style={sectionHeaderStyles.iconBox}>
+                {icon}
+            </View>
+            <Text style={[sectionHeaderStyles.label, { color: theme.text }]}>{label}</Text>
+        </View>
+    );
+}
+
+const sectionHeaderStyles = StyleSheet.create({
+    row: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 12,
+        marginTop: 4,
+    },
+    iconBox: {
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: DS.primaryDark,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    label: {
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: -0.2,
+    },
+});
+
+// ─── Main styles ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: {
@@ -431,6 +471,13 @@ const styles = StyleSheet.create({
     modalRoleLabel: { fontSize: 14, fontWeight: '600' },
     modalRoleDesc: { fontSize: 12, marginTop: 2 },
     modalCheck: { fontSize: 18, fontWeight: '700' },
+    modalCheckBox: {
+        width: 26,
+        height: 26,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
 
     // Google Sign-In
     googleBtn: {
