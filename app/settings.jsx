@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Modal,
+    Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -26,7 +27,7 @@ import EmailEditor from '../components/EmailEditor';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { theme } = useTheme();
+    const { theme, isDark } = useTheme();
     const { settings } = useSettings();
     const [modelName, setModelName] = useState('google/gemini-2.5-flash');
     const [loading, setLoading] = useState(true);
@@ -149,7 +150,19 @@ export default function SettingsScreen() {
                 <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
                     <Text style={[styles.backText, { color: theme.accent }]}>← Back</Text>
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
+                <View style={styles.headerCenter}>
+                    {/* logo-dark on light bg, logo-light on dark bg — settings uses dynamic theme */}
+                    <Image
+                        source={isDark
+                            ? require('../assets/logo-light.png')
+                            : require('../assets/logo-dark.png')
+                        }
+                        style={styles.headerLogo}
+                        resizeMode="cover"
+                        accessibilityLabel="TalentTrace logo"
+                    />
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
+                </View>
                 <View style={{ width: 56 }} />
             </View>
 
@@ -390,6 +403,8 @@ const styles = StyleSheet.create({
     },
     backBtn: { paddingVertical: 4, paddingRight: 8 },
     backText: { fontSize: 16, fontWeight: '600' },
+    headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    headerLogo: { width: 28, height: 28, borderRadius: 14 },
     headerTitle: { fontSize: 18, fontWeight: '700' },
     scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
     section: { fontSize: 16, fontWeight: '700', marginBottom: 12, marginTop: 4 },

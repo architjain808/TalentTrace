@@ -14,6 +14,7 @@ import {
     ActivityIndicator,
     Animated,
     Easing,
+    Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -165,8 +166,14 @@ function EmptyState() {
             <View style={styles.emptyHero}>
                 <View style={styles.emptyRing2} />
                 <View style={styles.emptyRing1} />
+                {/* logo-light: soft pale lime — suits the dark green emptyCenter circle */}
                 <View style={styles.emptyCenter}>
-                    <Text style={styles.emptyCenterText}>TT</Text>
+                    <Image
+                        source={require('../../assets/logo-light.png')}
+                        style={{ width: 52, height: 52, borderRadius: 26 }}
+                        resizeMode="cover"
+                        accessibilityLabel="TalentTrace logo"
+                    />
                 </View>
             </View>
 
@@ -241,9 +248,18 @@ export default function SearchScreen() {
                     { opacity: headerAnim, transform: [{ translateY: headerY }] },
                 ]}
             >
-                <View>
-                    <Text style={styles.brand}>TalentTrace</Text>
-                    <Text style={styles.brandSub}>HR CONTACT FINDER</Text>
+                {/* logo-dark: high-contrast lime on black — suits white header bg */}
+                <View style={styles.brandRow}>
+                    <Image
+                        source={require('../../assets/logo-dark.png')}
+                        style={styles.brandLogo}
+                        resizeMode="cover"
+                        accessibilityLabel="TalentTrace logo"
+                    />
+                    <View>
+                        <Text style={styles.brand}>TalentTrace</Text>
+                        <Text style={styles.brandSub}>HR CONTACT FINDER</Text>
+                    </View>
                 </View>
                 {/* No dark mode toggle — light mode only */}
             </Animated.View>
@@ -297,6 +313,14 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: C.surfaceLight,
+    },
+    brandRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    brandLogo: {
+        width: 36, height: 36, borderRadius: 18,
     },
     brand: {
         fontSize: 20, fontWeight: '800',
@@ -364,8 +388,8 @@ const styles = StyleSheet.create({
         width: 56, height: 56, borderRadius: 28,
         backgroundColor: C.primaryDark,
         alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
     },
-    emptyCenterText: { color: C.accent, fontSize: 18, fontWeight: '800', letterSpacing: -0.5 },
     emptyTitle: { fontSize: 20, fontWeight: '700', color: C.textPrimary, textAlign: 'center', marginBottom: 8, letterSpacing: -0.3 },
     emptyDesc:  { fontSize: 14, color: C.textSecondary, textAlign: 'center', lineHeight: 21, marginBottom: 32, paddingHorizontal: 8 },
 

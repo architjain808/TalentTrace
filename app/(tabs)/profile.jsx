@@ -17,6 +17,7 @@ import {
     KeyboardAvoidingView,
     Animated,
     Easing,
+    Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -247,8 +248,14 @@ export default function ProfileScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <StatusBar style="dark" />
 
-            {/* Header */}
+            {/* Header — logo-dark on white header background */}
             <View style={styles.header}>
+                <Image
+                    source={require('../../assets/logo-dark.png')}
+                    style={styles.headerLogo}
+                    resizeMode="cover"
+                    accessibilityLabel="TalentTrace logo"
+                />
                 <Text style={styles.headerTitle}>Account</Text>
             </View>
 
@@ -512,7 +519,9 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14,
         borderBottomWidth: 1, borderBottomColor: C.surfaceLight,
+        flexDirection: 'row', alignItems: 'center', gap: 10,
     },
+    headerLogo: { width: 32, height: 32, borderRadius: 16 },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.primaryDark, letterSpacing: -0.3 },
     scrollContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
 

@@ -8,6 +8,7 @@ import {
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
+    Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { signInWithGoogle } from '../services/googleAuth';
@@ -75,7 +76,13 @@ export default function SetupScreen() {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={styles.headerArea}>
-                    <Text style={styles.logoIcon}>📧</Text>
+                    {/* Official logo — dark variant on light theme background */}
+                    <Image
+                        source={require('../assets/logo-dark.png')}
+                        style={styles.logoImage}
+                        resizeMode="cover"
+                        accessibilityLabel="TalentTrace logo"
+                    />
                     <Text style={[styles.title, { color: theme.text }]}>Email Setup</Text>
                     <Text style={[styles.subtitle, { color: theme.textMuted }]}>
                         Sign in to send emails from your Gmail
@@ -147,7 +154,7 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
     headerArea: { alignItems: 'center', marginBottom: 20 },
-    logoIcon: { fontSize: 44, marginBottom: 8 },
+    logoImage: { width: 72, height: 72, borderRadius: 36, marginBottom: 12 },
     title: { fontSize: 26, fontWeight: '800' },
     subtitle: { fontSize: 14, fontWeight: '500', marginTop: 2, textAlign: 'center' },
 

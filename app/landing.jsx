@@ -13,6 +13,7 @@ import {
     Easing,
     Dimensions,
     Platform,
+    Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Text as SvgText, Defs, RadialGradient, Stop } from 'react-native-svg';
@@ -42,8 +43,13 @@ const C = {
 
 // §12.1 — Network graph hero illustration (dimensional, edge-to-edge visual)
 // Represents TalentTrace's core value: connecting job seekers to HR contacts
+// cx=148, cy=145 is the center node position within the 300×290 SVG viewport
+const HERO_CENTER_X = 148;
+const HERO_CENTER_Y = 145;
+const LOGO_SIZE = 80; // fits inside inner circle (r=46 → ⌀92)
+
 function NetworkHero() {
-    const cx = 148, cy = 145; // central node
+    const cx = HERO_CENTER_X, cy = HERO_CENTER_Y; // central node
 
     // §12.1 — Satellite contact nodes (positioned organically around center)
     const satellites = [
@@ -56,7 +62,9 @@ function NetworkHero() {
 
     return (
         // §5.3 — large, immersive illustration area
-        <Svg width={300} height={290} viewBox="0 0 300 290">
+        // View wrapper allows Image overlay positioned over the SVG center node
+        <View style={{ width: 300, height: 290 }}>
+        <Svg width={300} height={290} viewBox="0 0 300 290" style={StyleSheet.absoluteFill}>
             <Defs>
                 <RadialGradient id="glow" cx="50%" cy="50%" r="50%">
                     <Stop offset="0%" stopColor={C.accent} stopOpacity="0.08" />
@@ -105,18 +113,23 @@ function NetworkHero() {
             <Circle cx={cx} cy={cy} r={54} fill={C.accent} />
             <Circle cx={cx} cy={cy} r={46} fill={C.primaryDark} />
 
-            {/* §3.2 — Monogram in type-h2 scale */}
-            <SvgText
-                x={cx} y={cy + 10}
-                textAnchor="middle"
-                fill={C.accent}
-                fontSize="26"
-                fontWeight="700"
-                letterSpacing="-1"
-            >
-                TT
-            </SvgText>
         </Svg>
+
+        {/* Official logo — light variant, overlaid on the central dark circle */}
+        <Image
+            source={require('../assets/logo-light.png')}
+            style={{
+                position: 'absolute',
+                width: LOGO_SIZE,
+                height: LOGO_SIZE,
+                borderRadius: LOGO_SIZE / 2,
+                top: HERO_CENTER_Y - LOGO_SIZE / 2,
+                left: HERO_CENTER_X - LOGO_SIZE / 2,
+            }}
+            resizeMode="cover"
+            accessibilityLabel="TalentTrace logo"
+        />
+        </View>
     );
 }
 

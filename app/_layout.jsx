@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from '../components/Toast';
@@ -65,13 +65,13 @@ function SplashScreen() {
                     { opacity: ringOpacity, transform: [{ scale: ringScale }] },
                 ]} />
 
-                {/* Outer lime ring */}
-                <View style={splash.logoOuter}>
-                    {/* Inner dark circle */}
-                    <View style={splash.logoInner}>
-                        <Text style={splash.logoMono}>TT</Text>
-                    </View>
-                </View>
+                {/* Official app logo — light variant on dark splash bg */}
+                <Image
+                    source={require('../assets/logo-light.png')}
+                    style={splash.logoImage}
+                    resizeMode="cover"
+                    accessibilityLabel="TalentTrace logo"
+                />
             </Animated.View>
 
             {/* App name */}
@@ -183,28 +183,13 @@ const splash = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#B0EC70',
     },
-    logoOuter: {
+    logoImage: {
         width: 100, height: 100, borderRadius: 50,
-        backgroundColor: '#B0EC70',
-        alignItems: 'center',
-        justifyContent: 'center',
         shadowColor: '#B0EC70',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.4,
         shadowRadius: 24,
         elevation: 12,
-    },
-    logoInner: {
-        width: 82, height: 82, borderRadius: 41,
-        backgroundColor: '#144516',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    logoMono: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#B0EC70',
-        letterSpacing: -1,
     },
 
     // Text
