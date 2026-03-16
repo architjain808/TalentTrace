@@ -18,6 +18,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Keystores — keep credentials/ folder keystores in git, block everything else
+*.keystore
+!credentials/*.keystore
+
 # Metro
 .metro-health-check*
 

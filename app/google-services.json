@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "206742647317-ktcp3kbkhdn623b10adueg5260kr2uhj.apps.googleusercontent.com",
+          "client_id": "206742647317-1toghiobf8f59gupl0t0nnvq4ilohjbf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.talenttrace.app",
-            "certificate_hash": "6132dda753f6236b6075664a3c75e6614dc7021a"
+            "certificate_hash": "a6c52ccbd2e362b57713e8567a1e6750ce83cf1d"
           }
         },
         {

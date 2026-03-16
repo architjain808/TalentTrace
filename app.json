@@ -18,11 +18,10 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0f172a",
-        "foregroundImage": "./assets/logo-dark.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/logo-dark.png"
       },
       "package": "com.talenttrace.app",
+      "googleServicesFile": "./app/google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",

@@ -13,10 +13,12 @@
     "build:local": "powershell -Command \"cd android; .\\gradlew.bat assembleDebug -PreactNativeArchitectures=arm64-v8a\"",
     "build:local:release": "powershell -Command \"cd android; .\\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a\"",
     "build:local:all-arch": "powershell -Command \"cd android; .\\gradlew.bat assembleRelease\"",
+    "build:bundle": "powershell -Command \"cd android; .\\gradlew.bat bundleRelease\"",
     "install:apk": "adb install -r android/app/build/outputs/apk/debug/app-debug.apk",
     "install:apk:release": "adb install -r android/app/build/outputs/apk/release/app-release.apk",
     "dev:android": "npx expo run:android",
-    "prebuild": "expo prebuild --platform android --clean"
+    "prebuild": "expo prebuild --platform android --clean",
+    "postprebuild": "node scripts/post-prebuild.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

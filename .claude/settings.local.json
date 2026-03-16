@@ -26,7 +26,8 @@
       "Bash(python scripts/search.py \"mobile email template editor SaaS outreach premium professional\" --design-system -p \"TalentTrace\" -f markdown)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_take_screenshot",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(firebase:*)"
     ]
   }
 }
