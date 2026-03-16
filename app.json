@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "scheme": "hr-email-finder",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logo-dark.png",
       "resizeMode": "contain",
       "backgroundColor": "#0f172a"
     },
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#0f172a",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/logo-dark.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
@@ -39,7 +39,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/logo-dark.png",
       "bundler": "metro"
     },
     "platforms": [

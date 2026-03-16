@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "206742647317",
+    "project_id": "talent-trace-firebase",
+    "storage_bucket": "talent-trace-firebase.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:206742647317:android:034594493b8ea2634d141c",
+        "android_client_info": {
+          "package_name": "com.talenttrace.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "206742647317-ktcp3kbkhdn623b10adueg5260kr2uhj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.talenttrace.app",
+            "certificate_hash": "6132dda753f6236b6075664a3c75e6614dc7021a"
+          }
+        },
+        {
+          "client_id": "206742647317-u15rernnmpnrthfodlgp94rcm2f21fsp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGfkAmwAweuzG5XRfTik_klvN4z-Zsdco"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "206742647317-rqilg2haergq1f8lk7ap25fs1a6phq8c.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
