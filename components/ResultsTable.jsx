@@ -43,7 +43,7 @@ export default function ResultsTable({ results, company, onSend, roleContext }) 
                 <View>
                     {/* §3.2 — type-h3: 20px 600 */}
                     <Text style={styles.companyName}>{company}</Text>
-                    <Text style={styles.subtitle}>HR contacts found</Text>
+                    <Text style={styles.subtitle}>contacts found</Text>
                 </View>
                 {/* §6.2 — Count badge: lime pill */}
                 <View style={styles.countBadge}>

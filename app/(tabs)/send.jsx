@@ -22,6 +22,7 @@ import { showToast } from '../../components/Toast';
 
 const C = {
     primaryDark:  '#144516',
+    accent:       '#B0EC70',
     surfaceLight: '#D7E2D6',
     white:        '#FFFFFF',
     textSecondary:'#6B7B6E',
@@ -61,9 +62,9 @@ export default function SendScreen() {
                 ]}
             >
                 <View style={styles.headerIconBox}>
-                    <SendIcon size={20} color={C.primaryDark} strokeWidth={1.5} />
+                    <SendIcon size={20} color={C.accent} strokeWidth={1.5} />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.headerTitle}>Direct Send</Text>
                     <Text style={styles.headerSub}>Email a contact you already know</Text>
                 </View>
@@ -95,8 +96,10 @@ const styles = StyleSheet.create({
     },
     headerIconBox: {
         width: 44, height: 44, borderRadius: 12,
-        backgroundColor: C.surfaceLight,
+        backgroundColor: C.primaryDark,
         alignItems: 'center', justifyContent: 'center',
+        shadowColor: C.primaryDark, shadowOpacity: 0.25, shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 }, elevation: 3,
     },
     headerTitle: { fontSize: 20, fontWeight: '700', color: C.primaryDark, letterSpacing: -0.3 },
     headerSub:   { fontSize: 12, fontWeight: '500', color: C.textSecondary, marginTop: 1 },

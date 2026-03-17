@@ -177,6 +177,7 @@ export default function EmailCard({ contact, onSend, company }) {
                         contactData={contactData}
                         onSubjectChange={setSubject}
                         onBodyChange={setBody}
+                        embedded
                     />
                 </View>
             )}
@@ -288,10 +289,10 @@ const styles = StyleSheet.create({
     },
     errorText: { fontSize: 12, color: C.danger },
 
-    // Editor section
+    // Editor section — separator only, no extra padding (EmailEditor embedded handles its own spacing)
     editorSection: {
         borderTopWidth: 1, borderTopColor: C.surfaceLight,
-        paddingTop: 14, marginTop: 4, marginBottom: 8,
+        marginTop: 8, marginBottom: 4,
     },
 
     // §6.1 — Primary CTA: lime pill

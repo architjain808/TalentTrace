@@ -86,9 +86,31 @@ Expo Router file-based navigation. `_layout.jsx` wraps everything in `ThemeProvi
 
 The OpenRouter prompt uses short single-character JSON keys (`d`, `p`, `c`, `n`, `r`, `e`, `l`, `ph`, `cf`) to minimize token usage (~800 tokens/search). The extractor in `services/extractor.js` handles both the compact keys and their verbose equivalents. Truncated JSON responses are salvaged by finding the last complete object before parsing.
 
+## Email UI Component Map
+
+**CRITICAL — there are two separate email editor implementations. Always edit the correct one:**
+
+| Screen | File to edit | Component |
+|---|---|---|
+| Templates management screen (`/templates`) | `app/templates.jsx` | `TemplateEditor` — defined **inline** in that file, not imported |
+| Email compose inside search results | `components/EmailCard.jsx` + `components/EmailEditor.jsx` | `EmailEditor` with `mode="compose"` + `embedded` prop |
+| Email compose inside Direct Send tab | `components/DirectSend.jsx` + `components/EmailEditor.jsx` | Same `EmailEditor` with `embedded` prop |
+
+**Rule:** Changes to `components/EmailEditor.jsx` have **zero effect** on the templates screen. Changes to `app/templates.jsx`'s `TemplateEditor` styles/JSX have **zero effect** on EmailCard/DirectSend.
+
+### Padding Architecture (templates screen)
+
+The `TemplateEditor` in `app/templates.jsx` uses an **edge-to-edge card** approach when the editor is open:
+- `scrollContent` sets `paddingHorizontal: 0` when `showEditor === true`
+- `editor.card` is `borderRadius: 0, borderWidth: 0` — fills screen width
+- `editor.formBody` has `paddingHorizontal: 20` — the **single** horizontal padding level
+- `fieldInputPill` / `bodyBox` have **no additional** horizontal padding or margin
+
+Do not re-add nested padding (`fieldBox.marginHorizontal`, `formBody` padding + `fieldBox` padding simultaneously). One level only.
+
 ## Key Conventions
 
 - All React Native styles use `StyleSheet.create` inline within each component file — no CSS/styled-components.
-- Components always spread `theme.*` from `useTheme()` into style props; hardcoded colors are not used.
+- New screens use hardcoded DS tokens (local `const C = {...}`) not `useTheme()` — dark mode was removed.
 - Email sending requires Google OAuth sign-in (Settings → Email Sending). There is no fallback email provider.
 - The `areKeysConfigured()` check in `services/storage.js` reads from `process.env` directly (env vars, not SecureStore).

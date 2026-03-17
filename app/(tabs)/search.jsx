@@ -122,7 +122,7 @@ function SearchInput({ onSearch, loading }) {
                 onPress={handleSearch}
                 disabled={loading || !query.trim()}
                 activeOpacity={0.85}
-                accessibilityLabel="Find HR contacts"
+                accessibilityLabel="Find contacts"
                 accessibilityRole="button"
             >
                 {loading
@@ -177,9 +177,9 @@ function EmptyState() {
                 </View>
             </View>
 
-            <Text style={styles.emptyTitle}>Find HR contacts at any company</Text>
+            <Text style={styles.emptyTitle}>Find key contacts at any company</Text>
             <Text style={styles.emptyDesc}>
-                Enter a company name above. We'll find verified HR contacts and help you reach them.
+                Enter a company name above. We'll find verified contacts and help you reach them.
             </Text>
 
             <View style={styles.capabilityCard}>
@@ -223,7 +223,7 @@ export default function SearchScreen() {
 
     const handleSearch = async (company) => {
         const found = await search(company);
-        if (found.length > 0) showToast('success', 'Search Complete', `Found ${found.length} HR contact(s)`);
+        if (found.length > 0) showToast('success', 'Search Complete', `Found ${found.length} contact(s)`);
     };
 
     const handleSend = async (emailData) => {
@@ -258,7 +258,7 @@ export default function SearchScreen() {
                     />
                     <View>
                         <Text style={styles.brand}>TalentTrace</Text>
-                        <Text style={styles.brandSub}>HR CONTACT FINDER</Text>
+                        <Text style={styles.brandSub}>CONTACT FINDER</Text>
                     </View>
                 </View>
                 {/* No dark mode toggle — light mode only */}

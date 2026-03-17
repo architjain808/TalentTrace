@@ -133,14 +133,14 @@ const STARTER_TEMPLATES = [
     {
         id: 'tpl_cold_outreach',
         name: 'Cold Outreach',
-        subject: 'Interested in Opportunities at {{company}}',
-        body: 'Hi {{name}},\n\nI came across your profile and noticed you work in {{role}} at {{company}}. I am very interested in exploring opportunities there.\n\nI would love to connect and learn more about any openings that match my background.\n\nBest regards',
+        subject: 'Reaching Out \u2014 {{company}}',
+        body: 'Hi {{name}},\n\nI came across your profile and noticed you are involved in {{role}} at {{company}}. I would love to connect and explore if there is a way we could work together.\n\nWould you be open to a quick conversation?\n\nBest regards',
     },
     {
         id: 'tpl_follow_up',
         name: 'Follow Up',
-        subject: 'Following Up \u2014 {{company}} Opportunities',
-        body: 'Hi {{name}},\n\nI wanted to follow up on my previous email regarding potential opportunities at {{company}}.\n\nI am still very interested and would appreciate any guidance you can offer.\n\nThank you',
+        subject: 'Following Up \u2014 {{company}}',
+        body: 'Hi {{name}},\n\nI wanted to follow up on my previous email. I remain very interested in connecting with the team at {{company}} and would appreciate any guidance you can offer.\n\nThank you for your time',
     },
 ];
 

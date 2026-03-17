@@ -301,41 +301,40 @@ function TemplateEditor({ template, onSave, onCancel }) {
                         />
                     </FocusableField>
 
-                    {/* Subject — with active indicator */}
-                    <TouchableOpacity
-                        activeOpacity={1}
-                        onPress={() => { setActiveTarget('subject'); subjectRef.current?.focus(); }}
-                        style={[
-                            editor.fieldBox,
-                            { backgroundColor: C.bg },
-                            isSubjectActive && editor.fieldBoxActive,
-                        ]}
-                    >
-                        <Text style={[editor.fieldOverline, isSubjectActive && { color: C.primaryDark }]}>
+                    {/* Subject */}
+                    <View>
+                        <Text style={[editor.fieldOverline, isSubjectActive && editor.fieldOverlineActive]}>
                             SUBJECT LINE
                         </Text>
-                        <TextInput
-                            ref={subjectRef}
-                            style={editor.fieldInput}
-                            value={subject}
-                            onChangeText={setSubject}
-                            placeholder="Your application at {{company}}..."
-                            placeholderTextColor={C.textSecondary}
-                            onFocus={() => setActiveTarget('subject')}
-                            onSelectionChange={e => { subjectSelectionRef.current = e.nativeEvent.selection; }}
-                            returnKeyType="next"
-                            onSubmitEditing={() => { setActiveTarget('body'); bodyRef.current?.focus(); }}
-                        />
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            onPress={() => { setActiveTarget('subject'); subjectRef.current?.focus(); }}
+                            style={[editor.fieldInputPill, isSubjectActive && editor.fieldInputPillActive]}
+                        >
+                            <TextInput
+                                ref={subjectRef}
+                                style={editor.fieldInput}
+                                value={subject}
+                                onChangeText={setSubject}
+                                placeholder="Your application at {{company}}..."
+                                placeholderTextColor={C.textSecondary}
+                                onFocus={() => setActiveTarget('subject')}
+                                onSelectionChange={e => { subjectSelectionRef.current = e.nativeEvent.selection; }}
+                                returnKeyType="next"
+                                onSubmitEditing={() => { setActiveTarget('body'); bodyRef.current?.focus(); }}
+                            />
+                        </TouchableOpacity>
+                    </View>
 
                     {/* Body with toolbar */}
-                    <View style={[editor.bodyBox, isBodyActive && editor.bodyBoxActive]}>
-                        <Text style={[editor.fieldOverline, { paddingHorizontal: 12, paddingTop: 10 }, isBodyActive && { color: C.primaryDark }]}>
+                    <View>
+                        <Text style={[editor.fieldOverline, isBodyActive && editor.fieldOverlineActive]}>
                             EMAIL BODY
                         </Text>
+                    <View style={[editor.bodyBox, isBodyActive && editor.bodyBoxActive]}>
 
                         {/* Toolbar */}
-                        <View style={[editor.toolbar, { borderBottomColor: C.surfaceLight }]}>
+                        <View style={[editor.toolbar, { borderBottomColor: 'rgba(0,0,0,0.07)' }]}>
                             {/* Format buttons */}
                             <ToolbarButton onPress={() => wrapBody('**')} accessibilityLabel="Bold">
                                 <Bold size={15} color={C.textSecondary} strokeWidth={2.5} />
@@ -347,7 +346,7 @@ function TemplateEditor({ template, onSave, onCancel }) {
                                 <List size={15} color={C.textSecondary} strokeWidth={2.5} />
                             </ToolbarButton>
 
-                            <View style={[editor.toolDivider, { backgroundColor: C.surfaceLight }]} />
+                            <View style={[editor.toolDivider, { backgroundColor: 'rgba(0,0,0,0.08)' }]} />
 
                             {/* Variable chips */}
                             <ScrollView
@@ -387,6 +386,7 @@ function TemplateEditor({ template, onSave, onCancel }) {
                                 <Text style={editor.statsText}>{body.length} chars</Text>
                             </View>
                         )}
+                    </View>
                     </View>
                 </>) : (
                     /* Preview pane */
@@ -445,14 +445,14 @@ function TemplateEditor({ template, onSave, onCancel }) {
 function FocusableField({ label, children }) {
     const [focused, setFocused] = useState(false);
     return (
-        <View
-            style={[editor.fieldBox, { backgroundColor: C.bg }, focused && editor.fieldBoxActive]}
-        >
-            <Text style={[editor.fieldOverline, focused && { color: C.primaryDark }]}>{label}</Text>
-            {React.cloneElement(children, {
-                onFocus: () => setFocused(true),
-                onBlur:  () => setFocused(false),
-            })}
+        <View>
+            <Text style={[editor.fieldOverline, focused && editor.fieldOverlineActive]}>{label}</Text>
+            <View style={[editor.fieldInputPill, focused && editor.fieldInputPillActive]}>
+                {React.cloneElement(children, {
+                    onFocus: () => setFocused(true),
+                    onBlur:  () => setFocused(false),
+                })}
+            </View>
         </View>
     );
 }
@@ -563,7 +563,12 @@ export default function TemplatesScreen() {
             {/* ── Content ── */}
             <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView
-                    contentContainerStyle={screen.scrollContent}
+                    contentContainerStyle={[
+                        screen.scrollContent,
+                        // When editor is open: remove horizontal padding so editor card
+                        // can go edge-to-edge with its own single-level internal padding
+                        showEditor && { paddingHorizontal: 0, paddingTop: 0 },
+                    ]}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -610,7 +615,7 @@ export default function TemplatesScreen() {
                             <Text style={screen.emptyDesc}>
                                 Create reusable email templates with dynamic variables like{' '}
                                 <Text style={{ fontWeight: '700', color: C.primaryDark }}>{'{{name}}'}</Text> and{' '}
-                                <Text style={{ fontWeight: '700', color: C.primaryDark }}>{'{{company}}'}</Text> to speed up your HR outreach.
+                                <Text style={{ fontWeight: '700', color: C.primaryDark }}>{'{{company}}'}</Text> to speed up your outreach.
                             </Text>
                             <TouchableOpacity
                                 style={screen.emptyBtn}
@@ -710,18 +715,15 @@ const tCard = StyleSheet.create({
 
 // ─── Editor styles ────────────────────────────────────────────────────────────
 const editor = StyleSheet.create({
+    // Edge-to-edge card: no border, no side radius — fills full screen width
+    // scrollContent removes horizontal padding when editor is shown (see render)
     card: {
-        borderRadius: 16,
-        borderWidth: 1.5,
-        borderColor: C.primaryDark,
+        borderRadius: 0,
+        borderWidth: 0,
         overflow: 'hidden',
-        marginBottom: 20,
+        marginBottom: 0,
         backgroundColor: C.white,
-        shadowColor: C.primaryDark,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.14,
-        shadowRadius: 16,
-        elevation: 6,
+        flex: 1,
     },
     header: {
         flexDirection: 'row',
@@ -783,49 +785,77 @@ const editor = StyleSheet.create({
         letterSpacing: 0.1,
     },
 
+    // formBody: single level of 20px horizontal padding — no nesting beyond this
     formBody: {
-        paddingHorizontal: 14,
-        paddingTop: 14,
+        paddingHorizontal: 20,
+        paddingTop: 16,
         paddingBottom: 16,
-        gap: 8,
+        gap: 10,
     },
 
-    // Field group: background pill with overline label + input
+    // fieldBox: no additional horizontal padding — formBody(20px) is the only level
     fieldBox: {
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingTop: 8,
-        paddingBottom: 10,
-        borderWidth: 1.5,
+        borderRadius: 10,
+        paddingHorizontal: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        borderWidth: 0,
         borderColor: 'transparent',
     },
     fieldBoxActive: {
-        borderColor: C.primaryDark,
+        // Active state is now handled via the input wrapper background shift
     },
     fieldOverline: {
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: '700',
-        letterSpacing: 1.0,
+        letterSpacing: 0.8,
         color: C.textSecondary,
-        marginBottom: 4,
+        marginBottom: 6,
+    },
+    fieldOverlineActive: {
+        color: C.primaryDark,
+    },
+    // Input pill: surfaceLight bg with active border — single component, no nesting
+    fieldInputPill: {
+        backgroundColor: C.surfaceLight,
+        borderRadius: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 11,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    fieldInputPillActive: {
+        backgroundColor: C.white,
+        borderColor: C.accent,
+        shadowColor: C.accent,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 0,
     },
     fieldInput: {
-        fontSize: 14,
-        fontWeight: '500',
+        fontSize: 15,
+        fontWeight: '400',
         color: C.textPrimary,
-        paddingVertical: Platform.OS === 'android' ? 2 : 0,
+        paddingVertical: 0,
     },
 
-    // Body section with toolbar
+    // Body section with toolbar — no horizontal margin, formBody(20px) handles it
     bodyBox: {
         borderRadius: 12,
         overflow: 'hidden',
-        backgroundColor: C.bg,
-        borderWidth: 1.5,
+        backgroundColor: C.surfaceLight,
+        borderWidth: 2,
         borderColor: 'transparent',
     },
     bodyBoxActive: {
-        borderColor: C.primaryDark,
+        backgroundColor: C.white,
+        borderColor: C.accent,
+        shadowColor: C.accent,
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 0,
     },
     toolbar: {
         flexDirection: 'row',
@@ -902,7 +932,7 @@ const editor = StyleSheet.create({
         backgroundColor: C.surfaceLight,
     },
 
-    // Preview pane
+    // Preview pane — no extra margin, formBody(20px) is the single horizontal padding
     previewBox: {
         borderRadius: 12,
         borderWidth: 1,
@@ -957,7 +987,7 @@ const editor = StyleSheet.create({
         color: C.primaryDark,
     },
 
-    // Action buttons
+    // Action buttons — formBody(20px) handles horizontal alignment
     actionRow: {
         flexDirection: 'row',
         gap: 10,

@@ -53,10 +53,10 @@ function NetworkHero() {
 
     // §12.1 — Satellite contact nodes (positioned organically around center)
     const satellites = [
-        { x: 65,  y: 58,  r: 20, label: 'HR' },
-        { x: 240, y: 72,  r: 17, label: 'TA' },
-        { x: 48,  y: 210, r: 15, label: 'RC' },
-        { x: 248, y: 212, r: 18, label: 'HM' },
+        { x: 65,  y: 58,  r: 20, label: 'CEO' },
+        { x: 240, y: 72,  r: 17, label: 'VP' },
+        { x: 48,  y: 210, r: 15, label: 'PR' },
+        { x: 248, y: 212, r: 18, label: 'BD' },
         { x: 152, y: 22,  r: 13, label: '' },
     ];
 
@@ -277,12 +277,12 @@ export default function LandingScreen() {
                     }}
                 >
                     <Text style={styles.headline}>
-                        Find HR contacts.{'\n'}
-                        Land your next job{' '}
+                        Find the right contacts.{'\n'}
+                        Reach your goals{' '}
                         <Text style={styles.headlineAccentItalic}>faster.</Text>
                     </Text>
                     <Text style={styles.tagline}>
-                        AI-powered cold outreach for job seekers and sales teams
+                        AI-powered contact discovery and outreach — for any goal
                     </Text>
                 </Animated.View>
 

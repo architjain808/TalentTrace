@@ -77,7 +77,7 @@ function SplashScreen() {
             {/* App name */}
             <Animated.View style={{ opacity: fadeAnim }}>
                 <Text style={splash.appName}>TalentTrace</Text>
-                <Text style={splash.tagline}>Find HR contacts. Land your next job.</Text>
+                <Text style={splash.tagline}>Smart outreach. Reach the right people.</Text>
             </Animated.View>
 
             <StatusBar style="light" />

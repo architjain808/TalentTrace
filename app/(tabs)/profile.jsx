@@ -12,9 +12,7 @@ import {
     ScrollView,
     Platform,
     ActivityIndicator,
-    TextInput,
     Modal,
-    KeyboardAvoidingView,
     Animated,
     Easing,
     Image,
@@ -22,9 +20,9 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, LogOut, User, Zap, FileText, CheckCircle } from 'lucide-react-native';
+import { ChevronRight, LogOut, User, FileText, CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { loadSettings, saveSettings, USER_ROLES, getRoleById } from '../../services/storage';
+import { USER_ROLES, getRoleById } from '../../services/storage';
 import {
     signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured,
 } from '../../services/googleAuth';
@@ -83,41 +81,102 @@ function Card({ children }) {
     return <View style={cardStyles.card}>{children}</View>;
 }
 
-// Role picker bottom sheet modal
+// Role picker bottom sheet modal — proper slide-up with animated backdrop
 function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
+    const slideAnim   = useRef(new Animated.Value(400)).current;
+    const backdropAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (visible) {
+            Animated.parallel([
+                Animated.timing(backdropAnim, {
+                    toValue: 1, duration: 260,
+                    easing: Easing.out(Easing.ease), useNativeDriver: true,
+                }),
+                Animated.spring(slideAnim, {
+                    toValue: 0, friction: 9, tension: 80, useNativeDriver: true,
+                }),
+            ]).start();
+        } else {
+            Animated.parallel([
+                Animated.timing(backdropAnim, {
+                    toValue: 0, duration: 200,
+                    easing: Easing.in(Easing.ease), useNativeDriver: true,
+                }),
+                Animated.timing(slideAnim, {
+                    toValue: 400, duration: 220,
+                    easing: Easing.in(Easing.ease), useNativeDriver: true,
+                }),
+            ]).start();
+        }
+    }, [visible]);
+
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-            <TouchableOpacity style={modalStyles.backdrop} activeOpacity={1} onPress={onClose} />
-            <View style={modalStyles.sheet}>
-                <View style={modalStyles.handle} />
-                <Text style={modalStyles.title}>Select Outreach Goal</Text>
-                <Text style={modalStyles.subtitle}>Shapes which HR contacts we prioritize for you</Text>
-                <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 8 }}>
-                    {USER_ROLES.map((role, i) => {
-                        const isActive = currentRoleId === role.id;
-                        return (
-                            <TouchableOpacity
-                                key={role.id}
-                                style={[
-                                    modalStyles.roleRow,
-                                    i === USER_ROLES.length - 1 && { borderBottomWidth: 0 },
-                                    isActive && { backgroundColor: C.accentLight },
-                                ]}
-                                onPress={() => onSelect(role)}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={modalStyles.roleIcon}>{role.icon}</Text>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={modalStyles.roleLabel}>{role.label}</Text>
-                                    <Text style={modalStyles.roleDesc}>{role.description}</Text>
-                                </View>
-                                {isActive && (
-                                    <CheckCircle size={20} color={C.primary} strokeWidth={2} fill={C.accent} />
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </ScrollView>
+        <Modal visible={visible} animationType="none" transparent onRequestClose={onClose}>
+            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                {/* Dimming backdrop — absolute so it doesn't push sheet */}
+                <Animated.View
+                    style={[
+                        StyleSheet.absoluteFill,
+                        { backgroundColor: 'rgba(0,0,0,0.45)', opacity: backdropAnim },
+                    ]}
+                >
+                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+                </Animated.View>
+
+                {/* Sheet slides up */}
+                <Animated.View style={[modalStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+                    <View style={modalStyles.handle} />
+                    <Text style={modalStyles.title}>Select Outreach Goal</Text>
+                    <Text style={modalStyles.subtitle}>
+                        Shapes which contacts we surface based on your goal
+                    </Text>
+
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        style={{ marginTop: 12 }}
+                        bounces={false}
+                    >
+                        {USER_ROLES.map((role, i) => {
+                            const isActive = currentRoleId === role.id;
+                            return (
+                                <TouchableOpacity
+                                    key={role.id}
+                                    style={[
+                                        modalStyles.roleRow,
+                                        i === USER_ROLES.length - 1 && modalStyles.roleRowLast,
+                                        isActive && modalStyles.roleRowActive,
+                                    ]}
+                                    onPress={() => onSelect(role)}
+                                    activeOpacity={0.65}
+                                    accessibilityLabel={role.label}
+                                    accessibilityRole="radio"
+                                    accessibilityState={{ checked: isActive }}
+                                >
+                                    {/* Icon container */}
+                                    <View style={[modalStyles.roleIconBox, isActive && modalStyles.roleIconBoxActive]}>
+                                        <Text style={modalStyles.roleIconText}>{role.icon}</Text>
+                                    </View>
+
+                                    {/* Label + description */}
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[modalStyles.roleLabel, isActive && modalStyles.roleLabelActive]}>
+                                            {role.label}
+                                        </Text>
+                                        <Text style={modalStyles.roleDesc}>{role.description}</Text>
+                                    </View>
+
+                                    {/* Selected indicator vs empty radio */}
+                                    {isActive
+                                        ? <CheckCircle size={22} color={C.primary} strokeWidth={2} fill={C.accent} />
+                                        : <View style={modalStyles.radioEmpty} />
+                                    }
+                                </TouchableOpacity>
+                            );
+                        })}
+                        <View style={{ height: 8 }} />
+                    </ScrollView>
+                </Animated.View>
             </View>
         </Modal>
     );
@@ -130,7 +189,6 @@ export default function ProfileScreen() {
     const insets  = useSafeAreaInsets();
 
     const [loading, setLoading]         = useState(true);
-    const [saving, setSaving]           = useState(false);
     const [signingIn, setSigningIn]     = useState(false);
     const [addingQuota, setAddingQuota] = useState(false);
     const [showRolePicker, setShowRolePicker] = useState(false);
@@ -138,7 +196,6 @@ export default function ProfileScreen() {
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null, userName: null });
     const [quotaBalance, setQuotaBalance] = useState(0);
     const [currentRole, setCurrentRole]   = useState(null);
-    const [modelName, setModelName]       = useState('google/gemini-2.5-flash-lite');
 
     // Card entrance animation
     const cardAnim = useRef(new Animated.Value(0)).current;
@@ -146,8 +203,6 @@ export default function ProfileScreen() {
 
     useEffect(() => {
         (async () => {
-            const s = await loadSettings();
-            setModelName(s.openrouterModel || 'google/gemini-2.5-flash-lite');
             const authState = await getAuthState();
             setGoogleState(authState);
             if (authState.isSignedIn && auth.currentUser) {
@@ -203,16 +258,6 @@ export default function ProfileScreen() {
         router.replace('/landing');
     };
 
-    const handleSaveModel = async () => {
-        setSaving(true);
-        try {
-            const current = await loadSettings();
-            await saveSettings({ ...current, openrouterModel: modelName.trim() || 'google/gemini-2.5-flash-lite' });
-            showToast('success', 'Saved', 'AI model updated.');
-        } catch { showToast('error', 'Error', 'Failed to save.'); }
-        finally { setSaving(false); }
-    };
-
     const handleAddQuota = async () => {
         if (!auth.currentUser) return;
         setAddingQuota(true);
@@ -259,11 +304,9 @@ export default function ProfileScreen() {
                 <Text style={styles.headerTitle}>Account</Text>
             </View>
 
-            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
                 >
                     {/* §6.2 — Profile card (gradient balance-card style) */}
                     <Animated.View
@@ -291,9 +334,23 @@ export default function ProfileScreen() {
                                         <Text style={styles.quotaLabel}>credits</Text>
                                     </View>
                                 </View>
-                                <View style={styles.connectedRow}>
-                                    <View style={styles.connectedDot} />
-                                    <Text style={styles.connectedText}>Connected to Gmail</Text>
+                                <View style={styles.profileCardBottom}>
+                                    <View style={styles.connectedRow}>
+                                        <View style={styles.connectedDot} />
+                                        <Text style={styles.connectedText}>Connected to Gmail</Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        style={styles.addCreditsBtn}
+                                        onPress={handleAddQuota}
+                                        disabled={addingQuota}
+                                        activeOpacity={0.75}
+                                        accessibilityLabel="Add 10 search credits"
+                                    >
+                                        {addingQuota
+                                            ? <ActivityIndicator size="small" color={C.primaryDark} />
+                                            : <Text style={styles.addCreditsText}>+ Add Credits</Text>
+                                        }
+                                    </TouchableOpacity>
                                 </View>
                             </LinearGradient>
                         ) : (
@@ -315,41 +372,18 @@ export default function ProfileScreen() {
                     <SectionHeader label="Account" />
                     <Card>
                         {googleState.isSignedIn ? (
-                            <>
-                                <SettingRow
-                                    label="Gmail"
-                                    value={googleState.userEmail}
-                                    icon={User}
-                                    rightNode={
-                                        <View style={styles.connectedBadge}>
-                                            <View style={styles.connectedBadgeDot} />
-                                            <Text style={styles.connectedBadgeText}>Connected</Text>
-                                        </View>
-                                    }
-                                />
-                                <SettingRow
-                                    label="Search Credits"
-                                    icon={Zap}
-                                    rightNode={
-                                        <View style={styles.quotaRight}>
-                                            <Text style={styles.quotaRightNum}>{quotaBalance}</Text>
-                                            <TouchableOpacity
-                                                style={styles.addCreditsBtn}
-                                                onPress={handleAddQuota}
-                                                disabled={addingQuota}
-                                                activeOpacity={0.7}
-                                                accessibilityLabel="Add 10 credits"
-                                            >
-                                                {addingQuota
-                                                    ? <ActivityIndicator size="small" color={C.primaryDark} />
-                                                    : <Text style={styles.addCreditsText}>+ Add</Text>
-                                                }
-                                            </TouchableOpacity>
-                                        </View>
-                                    }
-                                    last
-                                />
-                            </>
+                            <SettingRow
+                                label="Gmail"
+                                value={googleState.userEmail}
+                                icon={User}
+                                last
+                                rightNode={
+                                    <View style={styles.connectedBadge}>
+                                        <View style={styles.connectedBadgeDot} />
+                                        <Text style={styles.connectedBadgeText}>Connected</Text>
+                                    </View>
+                                }
+                            />
                         ) : (
                             <TouchableOpacity
                                 style={styles.googleSignInRow}
@@ -396,58 +430,21 @@ export default function ProfileScreen() {
                         />
                     </Card>
 
-                    {/* ── AI Configuration ── */}
-                    <SectionHeader label="AI Configuration" />
-                    <Card>
-                        <View style={styles.aiModelWrap}>
-                            <Text style={styles.aiLabel}>OpenRouter Model</Text>
-                            <Text style={styles.aiDesc}>Model used for HR contact extraction</Text>
-                            <View style={styles.aiInputRow}>
-                                <TextInput
-                                    style={styles.aiInput}
-                                    value={modelName}
-                                    onChangeText={setModelName}
-                                    placeholder="google/gemini-2.5-flash-lite"
-                                    placeholderTextColor={C.textSecondary}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    accessibilityLabel="AI model name"
-                                />
-                                <TouchableOpacity
-                                    style={[styles.aiSaveBtn, saving && { opacity: 0.6 }]}
-                                    onPress={handleSaveModel}
-                                    disabled={saving}
-                                    activeOpacity={0.8}
-                                >
-                                    {saving
-                                        ? <ActivityIndicator size="small" color={C.primaryDark} />
-                                        : <Text style={styles.aiSaveBtnText}>Save</Text>
-                                    }
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </Card>
-
-                    {/* ── Danger Zone ── */}
+                    {/* ── Sign Out ── */}
                     {googleState.isSignedIn && (
-                        <>
-                            <SectionHeader label="Danger Zone" />
-                            <Card>
-                                <SettingRow
-                                    label="Sign Out"
-                                    icon={LogOut}
-                                    danger
-                                    onPress={handleSignOut}
-                                    last
-                                    rightNode={null}
-                                />
-                            </Card>
-                        </>
+                        <TouchableOpacity
+                            style={styles.signOutBtn}
+                            onPress={handleSignOut}
+                            activeOpacity={0.7}
+                            accessibilityLabel="Sign out"
+                        >
+                            <LogOut size={16} color={C.textSecondary} strokeWidth={1.5} />
+                            <Text style={styles.signOutBtnText}>Sign Out</Text>
+                        </TouchableOpacity>
                     )}
 
-                    <View style={{ height: 24 }} />
+                    <View style={{ height: 32 }} />
                 </ScrollView>
-            </KeyboardAvoidingView>
 
             <RolePickerModal
                 visible={showRolePicker}
@@ -494,23 +491,51 @@ const cardStyles = StyleSheet.create({
 });
 
 const modalStyles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
     sheet: {
-        backgroundColor: C.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 48 : 28, maxHeight: '78%',
-        shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 24, shadowOffset: { width: 0, height: -4 }, elevation: 24,
+        backgroundColor: C.white,
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        paddingHorizontal: 20,
+        paddingBottom: Platform.OS === 'ios' ? 48 : 24,
+        maxHeight: '82%',
+        shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 28,
+        shadowOffset: { width: 0, height: -6 }, elevation: 28,
     },
-    handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.surfaceLight, alignSelf: 'center', marginTop: 12, marginBottom: 16 },
-    title:    { fontSize: 18, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.3 },
-    subtitle: { fontSize: 13, marginTop: 4, marginBottom: 4, color: C.textSecondary },
+    handle: {
+        width: 40, height: 4, borderRadius: 2,
+        backgroundColor: C.surfaceLight,
+        alignSelf: 'center', marginTop: 12, marginBottom: 20,
+    },
+    title:    { fontSize: 20, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.4 },
+    subtitle: { fontSize: 13, marginTop: 6, color: C.textSecondary, lineHeight: 18 },
+
     roleRow: {
-        flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 10, paddingHorizontal: 10,
         borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.surfaceLight,
-        gap: 12, borderRadius: 8,
+        gap: 12, borderRadius: 14, marginHorizontal: -4,
     },
-    roleIcon:  { fontSize: 22 },
-    roleLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
-    roleDesc:  { fontSize: 12, marginTop: 2, color: C.textSecondary },
+    roleRowLast: { borderBottomWidth: 0 },
+    roleRowActive: {
+        backgroundColor: C.accentLight,
+        borderBottomColor: 'transparent',
+    },
+
+    roleIconBox: {
+        width: 44, height: 44, borderRadius: 12,
+        backgroundColor: C.surfaceLight,
+        alignItems: 'center', justifyContent: 'center',
+    },
+    roleIconBoxActive: { backgroundColor: C.accent },
+    roleIconText: { fontSize: 20 },
+
+    roleLabel:       { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    roleLabelActive: { color: C.primaryDark },
+    roleDesc:        { fontSize: 12, marginTop: 3, color: C.textSecondary, lineHeight: 16 },
+
+    radioEmpty: {
+        width: 22, height: 22, borderRadius: 11,
+        borderWidth: 2, borderColor: C.surfaceLight,
+    },
 });
 
 const styles = StyleSheet.create({
@@ -551,6 +576,9 @@ const styles = StyleSheet.create({
     },
     quotaAmount: { fontSize: 20, fontWeight: '800', color: C.accent, lineHeight: 24 },
     quotaLabel:  { fontSize: 10, fontWeight: '600', color: C.accent, letterSpacing: 0.3 },
+    profileCardBottom: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    },
     connectedRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     connectedDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
     connectedText: { fontSize: 12, color: C.accent, fontWeight: '500' },
@@ -562,13 +590,11 @@ const styles = StyleSheet.create({
     connectedBadgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.success },
     connectedBadgeText: { fontSize: 12, fontWeight: '600', color: '#1b5e20' },
 
-    quotaRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    quotaRightNum: { fontSize: 17, fontWeight: '700', color: C.primaryDark },
     addCreditsBtn: {
-        borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, minWidth: 52, alignItems: 'center',
-        backgroundColor: C.accentLight, borderWidth: 1, borderColor: 'rgba(176,236,112,0.3)',
+        borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6, minWidth: 60, alignItems: 'center',
+        backgroundColor: 'rgba(176,236,112,0.2)', borderWidth: 1, borderColor: 'rgba(176,236,112,0.35)',
     },
-    addCreditsText: { fontSize: 13, fontWeight: '700', color: C.primaryDark },
+    addCreditsText: { fontSize: 12, fontWeight: '700', color: C.accent },
 
     googleSignInRow: {
         flexDirection: 'row', alignItems: 'center',
@@ -578,18 +604,13 @@ const styles = StyleSheet.create({
     googleIconText: { color: C.white, fontSize: 14, fontWeight: '800' },
     googleSignInText: { flex: 1, fontSize: 15, fontWeight: '600', color: C.textPrimary },
 
-    aiModelWrap: { padding: 16, gap: 4 },
-    aiLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary, marginBottom: 2 },
-    aiDesc:  { fontSize: 12, color: C.textSecondary, marginBottom: 10 },
-    aiInputRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-    aiInput: {
-        flex: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10,
-        fontSize: 13, color: C.textPrimary, backgroundColor: C.surfaceLight,
+    // Sign out — standalone bottom button, not "danger zone"
+    signOutBtn: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 8, marginTop: 16, paddingVertical: 15,
+        borderRadius: 14, borderWidth: 1, borderColor: C.surfaceLight,
+        backgroundColor: C.white,
+        shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1,
     },
-    aiSaveBtn: {
-        borderRadius: 9999, paddingHorizontal: 16, paddingVertical: 10,
-        alignItems: 'center', justifyContent: 'center', backgroundColor: C.accent,
-        shadowColor: C.accent, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3,
-    },
-    aiSaveBtnText: { color: C.primaryDark, fontSize: 13, fontWeight: '700' },
+    signOutBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
 });

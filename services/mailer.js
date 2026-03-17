@@ -2,7 +2,7 @@ import { getAccessToken, getAuthState } from './googleAuth';
 import { sendGmail } from './gmailSender';
 
 /**
- * Send a cold email to an HR contact via Gmail API
+ * Send an email to a contact via Gmail API
  * @param {Object} params
  * @param {string} params.toEmail - Recipient email
  * @param {string} params.toName - Recipient name

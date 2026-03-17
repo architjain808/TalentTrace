@@ -53,7 +53,7 @@ export default function SetupScreen() {
         }
 
         if (hasRole) {
-            showToast('success', 'Setup Complete!', 'You\'re ready to find HR contacts.');
+            showToast('success', 'Setup Complete!', 'You\'re all set. Start reaching out.');
             router.replace('/');
         } else {
             router.replace('/role-select');

@@ -321,7 +321,7 @@ export default function SettingsScreen() {
                         <View style={styles.keyHeader}>
                             <Text style={[styles.keyLabel, { color: theme.text }]}>OpenRouter Model</Text>
                         </View>
-                        <Text style={[styles.keyDesc, { color: theme.textMuted }]}>Model used for HR contact extraction</Text>
+                        <Text style={[styles.keyDesc, { color: theme.textMuted }]}>Model used for contact extraction</Text>
                         <TextInput
                             style={[styles.keyInput, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, color: theme.text }]}
                             value={modelName}

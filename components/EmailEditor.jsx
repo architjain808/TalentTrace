@@ -51,6 +51,7 @@ export default function EmailEditor({
     contactData = {},
     onSubjectChange,
     onBodyChange,
+    embedded = false,   // true = skip own card chrome; parent card provides the container
 }) {
     const { theme } = useTheme();
 
@@ -217,10 +218,15 @@ export default function EmailEditor({
     if (mode === 'compose') {
         const isSubjectActive = activeTarget === 'subject' && !showPreview;
 
+        // When embedded, skip card chrome — parent provides border/shadow/padding.
+        // When standalone, wrap in the full envelopeCard.
+        const cardStyle = embedded
+            ? styles.composeEmbedded
+            : [styles.envelopeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }];
+
         return (
-            <View style={styles.composeRoot}>
-                {/* ── Main card ── */}
-                <View style={[styles.envelopeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={embedded ? null : styles.composeRoot}>
+                <View style={cardStyle}>
 
                     {/* ── Edit / Preview tab row (inside card) ── */}
                     <View style={[styles.tabRow, { borderBottomColor: theme.cardBorder, backgroundColor: theme.bgTertiary }]}>
@@ -417,7 +423,7 @@ export default function EmailEditor({
                     </View>
                     <Text style={[styles.emptyCardTitle, { color: theme.text }]}>No templates saved</Text>
                     <Text style={[styles.emptyCardDesc, { color: theme.textMuted }]}>
-                        Templates speed up your HR outreach. Tap "New" to create your first one.
+                        Templates speed up your outreach. Tap "New" to create your first one.
                     </Text>
                 </View>
             )}
@@ -759,6 +765,9 @@ const styles = StyleSheet.create({
 
     // ── COMPOSE ───────────────────────────────────────────────────────────────
     composeRoot: { gap: 0 },
+
+    // embedded mode: no own card chrome, parent provides the container
+    composeEmbedded: { overflow: 'hidden' },
 
     envelopeCard: {
         borderRadius: 16,
