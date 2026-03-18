@@ -43,13 +43,50 @@ All API keys are loaded via `EXPO_PUBLIC_*` env vars from a `.env` file (gitigno
 
 ### Search Pipeline (`hooks/useSearch.js`)
 
-The core 5-step pipeline orchestrated by `useSearch`:
+The core pipeline orchestrated by `useSearch`:
 
 1. **`findCompanyDomain()`** (`services/search.js`) — 1 Serper call to find the company's domain
-2. **`searchHRContacts()`** (`services/search.js`) — 2 parallel Serper calls: LinkedIn people search + email pattern/contact search
-3. **`extractWithAI()`** (`services/extractor.js`) — OpenRouter (Gemini 2.5 Flash Lite by default) parses raw search snippets and returns compact JSON with people, domain, and email patterns
-4. **`generateEmailCandidates()`** (`services/extractor.js`) — Merges AI-detected email patterns with `COMMON_PATTERNS`, generates candidate emails from name + domain
-5. **`validateContacts()`** (`services/validator.js`) — Format check → generic domain check → MX record lookup via Google DNS-over-HTTPS (no API key needed)
+2. **`checkCache(domain, targetRole)`** (`services/cache.js`) — 3-tier cache check (see Cache Architecture below)
+3. **`searchPeople()`** (`services/search.js`) — 1 Serper call to find LinkedIn profiles for the target role
+4. **`extractPeople()`** (`services/extractor.js`) — OpenRouter (Gemini 2.5 Flash) extracts names + roles from snippets
+5. **`findVerifiedEmail()`** (`services/gamalogic.js`) — Gamalogic via Firebase Cloud Function, per person
+6. Results sorted by score → cached under `targetRole` key → quota deducted
+
+### Cache Architecture (`services/cache.js`)
+
+Firestore collection: `domainCache/{domain}`
+
+**Document structure:**
+```json
+{
+  "domain": "xyz.com",
+  "company": "XYZ Corp",
+  "lastUpdatedAt": "<Firestore timestamp>",
+  "searchCount": 5,
+  "contactsByRole": {
+    "hr_manager":     { "contacts": [...], "savedAt": "<ISO string>" },
+    "cto":            { "contacts": [...], "savedAt": "<ISO string>" },
+    "sales_director": { "contacts": [...], "savedAt": "<ISO string>" }
+  }
+}
+```
+
+**Role key normalisation:** `normalizeRoleKey("HR Manager")` → `"hr_manager"` (lowercase, underscores, alphanumeric only, max 40 chars)
+
+**3-tier cache check (`checkCache(domain, targetRole)`):**
+- **Tier 1 — exact:** `contactsByRole[roleKey]` exists and is < 30 days old → return immediately, skip pipeline
+- **Tier 2 — cross:** Other role keys have fresh contacts → run full pipeline for current role + surface cross-role contacts as secondary section
+- **Tier 3 — miss:** No usable cache → run full pipeline
+
+**Cache write (`updateCache`):** Uses `updateDoc` with dot-notation key (`contactsByRole.hr_manager`) so sibling role entries are NEVER overwritten. Falls back to `setDoc` if the document doesn't exist yet.
+
+**Legacy cleanup:** Documents with the old flat `verifiedContacts` field (pre-role-partitioning) are deleted on first access.
+
+**TTL:** Contacts expire at 30 days per role. Domain document expires at 365 days.
+
+**`useSearch` exposes two result arrays:**
+- `results` — primary: fresh pipeline results (or exact-cached)
+- `extraResults` — secondary: cross-role cached contacts, deduplicated against primary
 
 ### Navigation (`app/`)
 
@@ -107,6 +144,10 @@ The `TemplateEditor` in `app/templates.jsx` uses an **edge-to-edge card** approa
 - `fieldInputPill` / `bodyBox` have **no additional** horizontal padding or margin
 
 Do not re-add nested padding (`fieldBox.marginHorizontal`, `formBody` padding + `fieldBox` padding simultaneously). One level only.
+
+## Flow Documentation Rule
+
+**Whenever any change is made to the search pipeline** (steps, APIs, caching, quota logic, or data flow in `hooks/useSearch.js`, `services/search.js`, `services/extractor.js`, `services/gamalogic.js`, `services/cache.js`, `functions/index.js`), **`flow.md` MUST be updated** to reflect the current flow before the task is considered complete. `flow.md` is the single source of truth for the pipeline architecture.
 
 ## Key Conventions
 

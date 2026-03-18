@@ -3,10 +3,15 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { View, Text, StyleSheet, Animated, Easing, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from '../components/Toast';
 import { getAuthState } from '../services/googleAuth';
 import { getUserRole } from '../services/storage';
 import { ThemeProvider, useTheme } from '../constants/theme';
+import { migrateLegacyCache } from '../services/cache';
+
+// One-time migration key — bump this string if another migration is ever needed
+const CACHE_MIGRATION_KEY = 'cache_migration_v2_done';
 
 // Routes that don't require auth
 const PUBLIC_ROUTES = ['landing', 'setup', 'role-select'];
@@ -103,6 +108,16 @@ function AppContent() {
                     if (!onPublicRoute) router.replace('/landing');
                     return;
                 }
+
+                // One-time migration: delete old flat-format domainCache documents.
+                // Runs in the background — does not block navigation or splash.
+                AsyncStorage.getItem(CACHE_MIGRATION_KEY).then(done => {
+                    if (!done) {
+                        migrateLegacyCache().then(() =>
+                            AsyncStorage.setItem(CACHE_MIGRATION_KEY, '1')
+                        ).catch(() => {});
+                    }
+                }).catch(() => {});
 
                 const role = await getUserRole();
                 if (!role && currentRoute !== 'role-select') {

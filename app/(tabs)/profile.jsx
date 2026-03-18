@@ -3,7 +3,7 @@
  * Light mode only. Templates → separate /templates page.
  * Safe area insets for proper Android top spacing.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -21,7 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronRight, LogOut, User, FileText, CheckCircle } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { USER_ROLES, getRoleById } from '../../services/storage';
 import {
     signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured,
@@ -201,23 +201,30 @@ export default function ProfileScreen() {
     const cardAnim = useRef(new Animated.Value(0)).current;
     const cardY    = useRef(new Animated.Value(-20)).current;
 
-    useEffect(() => {
-        (async () => {
-            const authState = await getAuthState();
-            setGoogleState(authState);
-            if (authState.isSignedIn && auth.currentUser) {
-                const profile = await getUserProfile(auth.currentUser.uid);
-                if (profile) {
-                    setQuotaBalance(profile.quotaBalance || 0);
-                    if (profile.role) setCurrentRole(getRoleById(profile.role));
+    // Refresh quota + profile data every time this tab gains focus
+    useFocusEffect(
+        useCallback(() => {
+            (async () => {
+                const authState = await getAuthState();
+                setGoogleState(authState);
+                if (authState.isSignedIn && auth.currentUser) {
+                    const profile = await getUserProfile(auth.currentUser.uid);
+                    if (profile) {
+                        setQuotaBalance(profile.quotaBalance || 0);
+                        if (profile.role) setCurrentRole(getRoleById(profile.role));
+                    }
                 }
-            }
-            setLoading(false);
-            Animated.parallel([
-                Animated.timing(cardAnim, { toValue: 1, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
-                Animated.timing(cardY,    { toValue: 0, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
-            ]).start();
-        })();
+                setLoading(false);
+            })();
+        }, [])
+    );
+
+    // Entrance animation — runs once on mount
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(cardAnim, { toValue: 1, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
+            Animated.timing(cardY,    { toValue: 0, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
+        ]).start();
     }, []);
 
     const handleRoleChange = async (role) => {

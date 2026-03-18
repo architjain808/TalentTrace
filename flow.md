@@ -18,31 +18,54 @@ The app is **role-agnostic**. The target role comes from the user's profile: `pr
 User Input: company name + targetRole (from profile)
     │
     ▼
-[Pre-flight] Firebase auth + quota check + role resolution  (EXISTING — do not modify)
+[Pre-flight] Firebase auth + quota check + role resolution  (do not modify)
     │
     ▼
-[Step 1] findCompanyDomain()       → Serper API call #1       → domain
+[Step 1] findCompanyDomain()          → Serper API call #1         → domain
     │
     ▼
-[Step 2] findPeople()              → Serper API call #2       → names + roles + LinkedIn URLs
-    │                              → Gemini via OpenRouter     → structured extraction
+[Cache Check] checkCache(domain, targetRole)  → Firestore read
+    │
+    ├─ TIER 1 (exact role hit)
+    │    contactsByRole[roleKey] exists + < 30 days old
+    │    → return exact cached contacts + deduct quota (-1) → DONE
+    │
+    ├─ TIER 2 (cross-role hit)
+    │    other role keys have fresh contacts
+    │    → save crossRoleItems for secondary section
+    │    → continue pipeline ↓ (fresh search for current role)
+    │
+    └─ TIER 3 (miss)
+         no usable cache → continue pipeline ↓
     │
     ▼
-[Step 3] findEmails()              → Gamalogic Email Finder   → verified emails (via Cloud Function)
-    │                                 (for each person found)
+[Step 2] searchPeople()               → Serper API call #2         → LinkedIn results
     │
     ▼
-[Step 4] buildResults()           → Combine all data, score, sort
+[Step 3] extractPeople()              → Gemini via OpenRouter       → names + roles
     │
     ▼
-[Step 5] cacheResults()           → Firestore write (non-blocking)
+[Step 4] findVerifiedEmail()          → Gamalogic via Cloud Function (per person)
     │
     ▼
-Display results + deduct quota (-1)
+[Step 5] Sort by score + deduplicate cross-role contacts against fresh results
+    │
+    ▼
+[Step 6] updateCache(domain, company, contacts, targetRole)   → Firestore write
+    │        writes to contactsByRole[roleKey] only (dot-notation — sibling roles preserved)
+    │
+    ▼
+Deduct quota (-1) + display:
+  - Primary section:   fresh results (role-matched)  ← on top
+  - Secondary section: cross-role cached contacts    ← below (if Tier 2)
 ```
 
-**Total API calls per search:** 2× Serper + 1× Gemini + up to 5× Gamalogic (via Cloud Function)
-**Total cost per search:** ~$0.009 (while free credits last)
+**Quota rule:** Deducted (-1) in ALL tiers, including exact cache hits. User initiated a search.
+
+**Total API calls per search (Tier 3 miss):** 2× Serper + 1× Gemini + up to 5× Gamalogic
+**Total API calls per search (Tier 1 exact hit):** 0 external API calls
+**Total API calls per search (Tier 2 cross hit):** same as Tier 3 (full pipeline for current role)
+**Total cost per search:** ~$0.009 (cache miss) / ~$0 (exact hit)
 
 ---
 

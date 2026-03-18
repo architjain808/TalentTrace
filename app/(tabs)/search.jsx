@@ -207,7 +207,7 @@ function EmptyState() {
 export default function SearchScreen() {
     const insets = useSafeAreaInsets();
     const {
-        results, loading, error, currentStep, steps,
+        results, extraResults, loading, error, currentStep, steps,
         companyName, activeRole, search, clearResults,
     } = useSearch();
 
@@ -284,6 +284,7 @@ export default function SearchScreen() {
                     </View>
                 )}
 
+                {/* Primary results — role-matched fresh contacts */}
                 {!loading && results.length > 0 && (
                     <ResultsTable
                         results={results}
@@ -293,7 +294,18 @@ export default function SearchScreen() {
                     />
                 )}
 
-                {!loading && results.length === 0 && !error && currentStep < 0 && (
+                {/* Secondary results — cross-role cached contacts from other searches */}
+                {!loading && extraResults.length > 0 && (
+                    <ResultsTable
+                        results={extraResults}
+                        company={companyName}
+                        onSend={handleSend}
+                        roleContext={null}
+                        isSecondary
+                    />
+                )}
+
+                {!loading && results.length === 0 && extraResults.length === 0 && !error && currentStep < 0 && (
                     <EmptyState />
                 )}
             </ScrollView>

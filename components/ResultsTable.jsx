@@ -19,7 +19,14 @@ const C = {
     successBg:    '#E8F5E9',
 };
 
-export default function ResultsTable({ results, company, onSend, roleContext }) {
+/**
+ * @param {object[]} results      - Contacts to display
+ * @param {string}   company      - Company name
+ * @param {Function} onSend       - Send handler
+ * @param {object}   roleContext  - Active role object (primary section only)
+ * @param {boolean}  isSecondary  - True for cross-role cached contacts section
+ */
+export default function ResultsTable({ results, company, onSend, roleContext, isSecondary = false }) {
     const [sendingAll, setSendingAll] = useState(false);
     const [allSent, setAllSent]       = useState(false);
 
@@ -37,28 +44,48 @@ export default function ResultsTable({ results, company, onSend, roleContext }) 
     if (!results || results.length === 0) return null;
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, isSecondary && styles.containerSecondary]}>
             {/* Results header */}
             <View style={styles.header}>
-                <View>
-                    {/* §3.2 — type-h3: 20px 600 */}
-                    <Text style={styles.companyName}>{company}</Text>
-                    <Text style={styles.subtitle}>contacts found</Text>
+                <View style={{ flex: 1 }}>
+                    {isSecondary ? (
+                        <>
+                            <Text style={styles.secondaryTitle}>More at {company}</Text>
+                            <Text style={styles.secondarySubtitle}>Other contacts found in previous searches</Text>
+                        </>
+                    ) : (
+                        <>
+                            <Text style={styles.companyName}>{company}</Text>
+                            <Text style={styles.subtitle}>contacts found</Text>
+                        </>
+                    )}
                 </View>
-                {/* §6.2 — Count badge: lime pill */}
-                <View style={styles.countBadge}>
-                    <Text style={styles.countNum}>{results.length}</Text>
-                    <Text style={styles.countLabel}>found</Text>
+                {/* Count badge */}
+                <View style={[styles.countBadge, isSecondary && styles.countBadgeSecondary]}>
+                    <Text style={[styles.countNum, isSecondary && styles.countNumSecondary]}>{results.length}</Text>
+                    <Text style={[styles.countLabel, isSecondary && styles.countLabelSecondary]}>
+                        {isSecondary ? 'cached' : 'found'}
+                    </Text>
                 </View>
             </View>
 
-            {/* Role context banner */}
-            {roleContext && (
+            {/* Role context banner — primary section only */}
+            {!isSecondary && roleContext && (
                 <View style={styles.contextBanner}>
                     <View style={styles.contextDot} />
                     <Text style={styles.contextText}>
                         Filtered for your{' '}
                         <Text style={styles.contextBold}>{roleContext.label}</Text> profile
+                    </Text>
+                </View>
+            )}
+
+            {/* Cache origin notice — secondary section only */}
+            {isSecondary && (
+                <View style={styles.cacheBanner}>
+                    <View style={styles.cacheDot} />
+                    <Text style={styles.cacheText}>
+                        These contacts were found by other users searching different roles at this company
                     </Text>
                 </View>
             )}
@@ -76,8 +103,8 @@ export default function ResultsTable({ results, company, onSend, roleContext }) 
                 scrollEnabled={false}
             />
 
-            {/* Send All — shown when 2+ contacts */}
-            {results.length > 1 && (
+            {/* Send All — shown when 2+ contacts, hidden for secondary section */}
+            {!isSecondary && results.length > 1 && (
                 <TouchableOpacity
                     style={[
                         styles.sendAllBtn,
@@ -102,24 +129,33 @@ export default function ResultsTable({ results, company, onSend, roleContext }) 
 }
 
 const styles = StyleSheet.create({
-    container: { marginTop: 4 },
+    container:          { marginTop: 4 },
+    containerSecondary: { marginTop: 24, paddingTop: 20, borderTopWidth: 1, borderTopColor: C.surfaceLight },
 
     // Header: company name + count badge
     header: {
         flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: 10,
+        alignItems: 'flex-start', marginBottom: 10, gap: 12,
     },
-    companyName: { fontSize: 20, fontWeight: '700', color: C.primaryDark, letterSpacing: -0.4 },
-    subtitle:   { fontSize: 12, marginTop: 2, color: C.textSecondary },
+    companyName:     { fontSize: 20, fontWeight: '700', color: C.primaryDark, letterSpacing: -0.4 },
+    subtitle:        { fontSize: 12, marginTop: 2, color: C.textSecondary },
+    secondaryTitle:  { fontSize: 16, fontWeight: '600', color: C.textPrimary },
+    secondarySubtitle: { fontSize: 12, marginTop: 2, color: C.textSecondary },
 
-    // §2.1 — Count badge in lime accent
+    // Count badge — lime for primary, muted for secondary
     countBadge: {
         borderRadius: 9999, paddingHorizontal: 14, paddingVertical: 8,
         alignItems: 'center', backgroundColor: C.accentLight,
         borderWidth: 1, borderColor: 'rgba(176,236,112,0.3)',
     },
-    countNum:   { fontSize: 22, fontWeight: '800', color: C.primaryDark, lineHeight: 26 },
-    countLabel: { fontSize: 10, fontWeight: '700', color: C.primary, letterSpacing: 0.3 },
+    countBadgeSecondary: {
+        backgroundColor: C.surfaceLight,
+        borderColor: 'rgba(107,123,110,0.2)',
+    },
+    countNum:              { fontSize: 22, fontWeight: '800', color: C.primaryDark, lineHeight: 26 },
+    countNumSecondary:     { fontSize: 18, color: C.textSecondary },
+    countLabel:            { fontSize: 10, fontWeight: '700', color: C.primary, letterSpacing: 0.3 },
+    countLabelSecondary:   { color: C.textSecondary },
 
     // Role context banner
     contextBanner: {
@@ -128,9 +164,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12, paddingVertical: 9,
         marginBottom: 12, gap: 8,
     },
-    contextDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
-    contextText:  { fontSize: 13, fontWeight: '500', color: C.textSecondary, flex: 1 },
-    contextBold:  { fontWeight: '700', color: C.textPrimary },
+    contextDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary },
+    contextText: { fontSize: 13, fontWeight: '500', color: C.textSecondary, flex: 1 },
+    contextBold: { fontWeight: '700', color: C.textPrimary },
+
+    // Cache origin banner (secondary section)
+    cacheBanner: {
+        flexDirection: 'row', alignItems: 'flex-start',
+        backgroundColor: 'rgba(215,226,214,0.4)', borderRadius: 10,
+        paddingHorizontal: 12, paddingVertical: 9,
+        marginBottom: 12, gap: 8,
+    },
+    cacheDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: C.textSecondary, marginTop: 4 },
+    cacheText: { fontSize: 12, color: C.textSecondary, flex: 1, lineHeight: 17 },
 
     divider: { height: 1, backgroundColor: C.surfaceLight, marginBottom: 12 },
 
