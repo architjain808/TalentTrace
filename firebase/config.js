@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +17,11 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = Platform.OS === 'web' ? getAnalytics(app) : null;
+// Analytics requires browser APIs (window/cookies) — guard against SSR/Node context
+let analytics = null;
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    isSupported().then(yes => { if (yes) analytics = getAnalytics(app); });
+}
 
 let auth;
 if (Platform.OS === 'web') {

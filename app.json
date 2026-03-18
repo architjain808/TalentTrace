@@ -39,7 +39,8 @@
     },
     "web": {
       "favicon": "./assets/logo-dark.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "server"
     },
     "platforms": [
       "ios",
