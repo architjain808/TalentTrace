@@ -265,16 +265,9 @@ export default function ProfileScreen() {
         router.replace('/landing');
     };
 
-    const handleAddQuota = async () => {
-        if (!auth.currentUser) return;
-        setAddingQuota(true);
-        try {
-            await updateQuotaBalance(auth.currentUser.uid, 10);
-            const profile = await getUserProfile(auth.currentUser.uid);
-            if (profile) setQuotaBalance(profile.quotaBalance || 0);
-            showToast('success', 'Quota Added', 'Added 10 credits.');
-        } catch { showToast('error', 'Error', 'Failed to add quota.'); }
-        finally { setAddingQuota(false); }
+    const handleAddQuota = () => {
+        // Redirect to the new official Google Play Billing flow in settings
+        router.push('/settings');
     };
 
     const getInitials = () => {
@@ -349,14 +342,10 @@ export default function ProfileScreen() {
                                     <TouchableOpacity
                                         style={styles.addCreditsBtn}
                                         onPress={handleAddQuota}
-                                        disabled={addingQuota}
                                         activeOpacity={0.75}
-                                        accessibilityLabel="Add 10 search credits"
+                                        accessibilityLabel="Buy Credits"
                                     >
-                                        {addingQuota
-                                            ? <ActivityIndicator size="small" color={C.primaryDark} />
-                                            : <Text style={styles.addCreditsText}>+ Add Credits</Text>
-                                        }
+                                        <Text style={styles.addCreditsText}>Buy Credits</Text>
                                     </TouchableOpacity>
                                 </View>
                             </LinearGradient>
