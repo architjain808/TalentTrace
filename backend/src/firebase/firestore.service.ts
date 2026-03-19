@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -7,8 +7,12 @@ const RECEIPTS_COLLECTION = 'paymentReceipts';
 
 @Injectable()
 export class FirestoreService {
-  private readonly db = admin.firestore();
+  private readonly db: admin.firestore.Firestore;
   private readonly logger = new Logger(FirestoreService.name);
+
+  constructor(@Inject('FIREBASE_ADMIN') private readonly firebaseApp: admin.app.App) {
+    this.db = this.firebaseApp.firestore();
+  }
 
   /**
    * Atomically add `amount` credits to a user's quotaBalance.
