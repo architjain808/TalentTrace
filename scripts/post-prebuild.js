@@ -31,13 +31,12 @@ function loadEnv() {
 }
 
 const env = loadEnv();
-const KEYSTORE_PASSWORD = env.ANDROID_KEYSTORE_PASSWORD || '';
-const KEY_ALIAS         = env.ANDROID_KEY_ALIAS         || 'my-key-alias';
-const KEY_PASSWORD      = env.ANDROID_KEY_PASSWORD      || '';
+const KEYSTORE_PASSWORD = env.ANDROID_KEYSTORE_PASSWORD || 'android';
+const KEY_ALIAS         = env.ANDROID_KEY_ALIAS         || 'androiddebugkey';
+const KEY_PASSWORD      = env.ANDROID_KEY_PASSWORD      || 'android';
 
-if (!KEYSTORE_PASSWORD) {
-  console.error('[post-prebuild] ✖ ANDROID_KEYSTORE_PASSWORD not set in .env — signing config will be incomplete');
-  process.exit(1);
+if (!env.ANDROID_KEYSTORE_PASSWORD) {
+  console.warn('[post-prebuild] ⚠ ANDROID_KEYSTORE_PASSWORD not set in .env — falling back to debug keystore password');
 }
 
 // ── 1. Restore release signing props in gradle.properties ───────────────────

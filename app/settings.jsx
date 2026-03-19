@@ -43,6 +43,9 @@ export default function SettingsScreen() {
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null });
     const [signingIn, setSigningIn] = useState(false);
     
+    // IAP State
+    const [iapProducts, setIapProducts] = useState(QUOTA_PACKS); // Will be replaced by real Google Play prices
+
     // Quota State
     const [quotaBalance, setQuotaBalance] = useState(0);
     const [showPlanPicker, setShowPlanPicker] = useState(false);
@@ -69,8 +72,29 @@ export default function SettingsScreen() {
                 }
             }
 
+            // Init IAP natively
+            try {
+                const products = await initIAP();
+                if (products && products.length > 0) {
+                    // map Google Play products into our local static UI shape
+                    const mergedProducts = QUOTA_PACKS.map(pack => {
+                        const playProduct = products.find(p => p.productId === pack.id);
+                        return playProduct
+                            ? { ...pack, price: playProduct.localizedPrice || pack.price }
+                            : pack;
+                    });
+                    setIapProducts(mergedProducts);
+                }
+            } catch (err) {
+                console.warn("Failed to initialize IAP:", err);
+            }
+
             setLoading(false);
         })();
+
+        return () => {
+            endIAP().catch(console.warn);
+        };
     }, []);
 
     const handleRoleChange = async (role) => {
@@ -322,7 +346,7 @@ export default function SettingsScreen() {
                                             Processed securely via Google Play
                                         </Text>
 
-                                        {QUOTA_PACKS.map((pack) => {
+                                        {iapProducts.map((pack) => {
                                             const isPurchasing = purchasingPack === pack.id;
                                             return (
                                                 <TouchableOpacity
