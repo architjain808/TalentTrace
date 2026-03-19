@@ -17,13 +17,21 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSettings } from '../hooks/useSettings';
 import { loadSettings, saveSettings, USER_ROLES, getRoleById } from '../services/storage';
-import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured } from '../services/googleAuth';
-import { getUserProfile, updateQuotaBalance, saveUserRoleToFirestore } from '../firebase/userCRUD';
+import { signInWithGoogle, getAuthState, signOut as googleSignOut, isGoogleAuthConfigured, getIdToken } from '../services/googleAuth';
+import { getUserProfile, saveUserRoleToFirestore } from '../firebase/userCRUD';
 import { auth } from '../firebase/config';
 import { showToast } from '../components/Toast';
 import { useTheme, DS } from '../constants/theme';
-import { Target, Mail, FileText, Bot, ChevronRight } from 'lucide-react-native';
+import { Target, Mail, FileText, Bot, ChevronRight, ShoppingCart, Zap } from 'lucide-react-native';
 import EmailEditor from '../components/EmailEditor';
+import { buyQuotaPack, initIAP, endIAP } from '../services/iapService';
+
+// Quota packs — mirrors backend PRODUCTS catalogue
+const QUOTA_PACKS = [
+    { id: 'quota_starter_50',  name: 'Starter',  credits: 50,  price: '₹99',  tag: null,     icon: '⚡' },
+    { id: 'quota_pro_150',     name: 'Pro',      credits: 150, price: '₹249', tag: 'Popular', icon: '🚀' },
+    { id: 'quota_growth_500',  name: 'Growth',   credits: 500, price: '₹699', tag: null,     icon: '🌱' },
+];
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -37,7 +45,8 @@ export default function SettingsScreen() {
     
     // Quota State
     const [quotaBalance, setQuotaBalance] = useState(0);
-    const [addingQuota, setAddingQuota] = useState(false);
+    const [showPlanPicker, setShowPlanPicker] = useState(false);
+    const [purchasingPack, setPurchasingPack] = useState(null); // product id being purchased
 
     // Role State
     const [currentRole, setCurrentRole] = useState(null);
@@ -123,22 +132,33 @@ export default function SettingsScreen() {
         }
     };
 
-    const handleAddQuota = async () => {
-        if (!auth.currentUser) return;
-        setAddingQuota(true);
+    const handleBuyCredits = async (pack) => {
+        if (!auth.currentUser) {
+            showToast('error', 'Not signed in', 'Sign in with Google first.');
+            return;
+        }
+        setPurchasingPack(pack.id);
         try {
-            // Add arbitrary amount e.g. 10
-            await updateQuotaBalance(auth.currentUser.uid, 10);
-            
-            // Refresh
+            // Get Firebase ID token to authenticate with backend
+            const idToken = await auth.currentUser.getIdToken();
+
+            // Trigger Google Play Billing UI + backend verification
+            const result = await buyQuotaPack(pack.id, idToken);
+
+            // Refresh quota display
             const profile = await getUserProfile(auth.currentUser.uid);
             if (profile) setQuotaBalance(profile.quotaBalance || 0);
-            
-            showToast('success', 'Quota Added', 'Successfully added 10 to your balance.');
+
+            setShowPlanPicker(false);
+            showToast('success', '🎉 Credits Added!', result.message);
         } catch (err) {
-            showToast('error', 'Error', 'Failed to add quota.');
+            console.error('[IAP] Purchase failed:', err);
+            // User cancelled is not an error worth showing
+            if (err.code !== 'E_USER_CANCELLED') {
+                showToast('error', 'Purchase Failed', err.message || 'Could not complete purchase.');
+            }
         } finally {
-            setAddingQuota(false);
+            setPurchasingPack(null);
         }
     };
 
@@ -274,18 +294,76 @@ export default function SettingsScreen() {
                                         <Text style={[styles.signOutText, { color: '#ef5350' }]}>Sign Out</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={[styles.addQuotaBtn, addingQuota && { opacity: 0.7 }]}
-                                        onPress={handleAddQuota}
-                                        disabled={addingQuota}
+                                        style={styles.buyCreditsBtn}
+                                        onPress={() => setShowPlanPicker(true)}
                                         activeOpacity={0.7}
                                     >
-                                        {addingQuota ? (
-                                            <ActivityIndicator size="small" color="#fff" />
-                                        ) : (
-                                            <Text style={styles.addQuotaText}>Add Quota</Text>
-                                        )}
+                                        <ShoppingCart size={13} color="#fff" strokeWidth={2.5} />
+                                        <Text style={styles.buyCreditsText}>Buy Credits</Text>
                                     </TouchableOpacity>
                                 </View>
+
+                                {/* ─── Plan Picker Modal ─── */}
+                                <Modal
+                                    visible={showPlanPicker}
+                                    animationType="slide"
+                                    transparent
+                                    onRequestClose={() => setShowPlanPicker(false)}
+                                >
+                                    <TouchableOpacity
+                                        style={styles.modalBackdrop}
+                                        activeOpacity={1}
+                                        onPress={() => setShowPlanPicker(false)}
+                                    />
+                                    <View style={[styles.planSheet, { backgroundColor: theme.card }]}>
+                                        <View style={[styles.modalHandle, { backgroundColor: theme.border }]} />
+                                        <Text style={[styles.planTitle, { color: theme.text }]}>Buy Quota Credits</Text>
+                                        <Text style={[styles.planSubtitle, { color: theme.textMuted }]}>
+                                            Processed securely via Google Play
+                                        </Text>
+
+                                        {QUOTA_PACKS.map((pack) => {
+                                            const isPurchasing = purchasingPack === pack.id;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={pack.id}
+                                                    style={[
+                                                        styles.planCard,
+                                                        { borderColor: pack.tag ? DS.accent : theme.cardBorder, backgroundColor: theme.bg },
+                                                        isPurchasing && { opacity: 0.7 },
+                                                    ]}
+                                                    onPress={() => handleBuyCredits(pack)}
+                                                    disabled={!!purchasingPack}
+                                                    activeOpacity={0.8}
+                                                >
+                                                    <Text style={styles.planIcon}>{pack.icon}</Text>
+                                                    <View style={{ flex: 1 }}>
+                                                        <View style={styles.planRow}>
+                                                            <Text style={[styles.planName, { color: theme.text }]}>{pack.name}</Text>
+                                                            {pack.tag && (
+                                                                <View style={styles.planTag}>
+                                                                    <Text style={styles.planTagText}>{pack.tag}</Text>
+                                                                </View>
+                                                            )}
+                                                        </View>
+                                                        <Text style={[styles.planCredits, { color: theme.textMuted }]}>
+                                                            {pack.credits} searches
+                                                        </Text>
+                                                    </View>
+                                                    {isPurchasing ? (
+                                                        <ActivityIndicator size="small" color={DS.accent} />
+                                                    ) : (
+                                                        <Text style={[styles.planPrice, { color: DS.accent }]}>{pack.price}</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+
+                                        <Text style={[styles.planDisclaimer, { color: theme.textMuted }]}>
+                                            Payments processed by Google Play. Prices may vary by region.
+                                        </Text>
+                                    </View>
+                                </Modal>
                             </View>
                         ) : (
                             <View>
@@ -539,17 +617,67 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#1976d2',
     },
-    addQuotaBtn: {
-        backgroundColor: '#1976d2',
+    buyCreditsBtn: {
+        backgroundColor: DS.accent,
         borderRadius: 8,
         paddingVertical: 8,
+        paddingHorizontal: 14,
         alignItems: 'center',
+        justifyContent: 'center',
+        flexDirection: 'row',
+        gap: 6,
         marginTop: 10,
         flex: 1,
     },
-    addQuotaText: {
+    buyCreditsText: {
         fontSize: 13,
-        fontWeight: '600',
+        fontWeight: '700',
         color: '#fff',
+    },
+
+    // Plan Picker Modal
+    planSheet: {
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+        paddingTop: 4,
+    },
+    planTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 4,
+        marginTop: 10,
+    },
+    planSubtitle: {
+        fontSize: 12,
+        marginBottom: 18,
+    },
+    planCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 10,
+        gap: 12,
+    },
+    planIcon: { fontSize: 22 },
+    planRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    planName: { fontSize: 15, fontWeight: '700' },
+    planCredits: { fontSize: 12, marginTop: 2 },
+    planPrice: { fontSize: 16, fontWeight: '800' },
+    planTag: {
+        backgroundColor: DS.accent,
+        borderRadius: 6,
+        paddingHorizontal: 7,
+        paddingVertical: 2,
+    },
+    planTagText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+    planDisclaimer: {
+        fontSize: 11,
+        textAlign: 'center',
+        marginTop: 10,
+        lineHeight: 16,
     },
 });
