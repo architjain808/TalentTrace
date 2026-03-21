@@ -31,17 +31,17 @@ import { auth } from '../../firebase/config';
 import { showToast } from '../../components/Toast';
 
 const C = {
-    primaryDark:  '#144516',
-    primary:      '#416943',
-    primaryMid:   '#2D5A30',
-    accent:       '#B0EC70',
-    accentLight:  'rgba(176,236,112,0.15)',
+    primaryDark: '#144516',
+    primary: '#416943',
+    primaryMid: '#2D5A30',
+    accent: '#B0EC70',
+    accentLight: 'rgba(176,236,112,0.15)',
     surfaceLight: '#D7E2D6',
-    white:        '#FFFFFF',
-    textPrimary:  '#1A1A1A',
-    textSecondary:'#6B7B6E',
-    success:      '#4CAF50',
-    danger:       '#E53935',
+    white: '#FFFFFF',
+    textPrimary: '#1A1A1A',
+    textSecondary: '#6B7B6E',
+    success: '#4CAF50',
+    danger: '#E53935',
 };
 
 // §3.2 — type-overline section header
@@ -83,7 +83,7 @@ function Card({ children }) {
 
 // Role picker bottom sheet modal — proper slide-up with animated backdrop
 function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
-    const slideAnim   = useRef(new Animated.Value(400)).current;
+    const slideAnim = useRef(new Animated.Value(400)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -185,21 +185,21 @@ function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-    const router  = useRouter();
-    const insets  = useSafeAreaInsets();
+    const router = useRouter();
+    const insets = useSafeAreaInsets();
 
-    const [loading, setLoading]         = useState(true);
-    const [signingIn, setSigningIn]     = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [signingIn, setSigningIn] = useState(false);
     const [addingQuota, setAddingQuota] = useState(false);
     const [showRolePicker, setShowRolePicker] = useState(false);
 
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null, userName: null });
     const [quotaBalance, setQuotaBalance] = useState(0);
-    const [currentRole, setCurrentRole]   = useState(null);
+    const [currentRole, setCurrentRole] = useState(null);
 
     // Card entrance animation
     const cardAnim = useRef(new Animated.Value(0)).current;
-    const cardY    = useRef(new Animated.Value(-20)).current;
+    const cardY = useRef(new Animated.Value(-20)).current;
 
     // Refresh quota + profile data every time this tab gains focus
     useFocusEffect(
@@ -223,20 +223,14 @@ export default function ProfileScreen() {
     useEffect(() => {
         Animated.parallel([
             Animated.timing(cardAnim, { toValue: 1, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
-            Animated.timing(cardY,    { toValue: 0, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
+            Animated.timing(cardY, { toValue: 0, duration: 350, easing: Easing.bezier(0.33, 1, 0.68, 1), useNativeDriver: true }),
         ]).start();
     }, []);
 
     const handleRoleChange = async (role) => {
         if (auth.currentUser) {
-            try { 
-                await saveUserRoleToFirestore(auth.currentUser.uid, role.id); 
-                const token = await auth.currentUser.getIdToken();
-                console.log('\n=============================================');
-                console.log('🔥 POSTMAN FIREBASE ID TOKEN 🔥');
-                console.log('=============================================');
-                console.log(token);
-                console.log('=============================================\n');
+            try {
+                await saveUserRoleToFirestore(auth.currentUser.uid, role.id);
             }
             catch (err) { console.error('Failed to sync role:', err); }
         }
@@ -312,143 +306,143 @@ export default function ProfileScreen() {
                 <Text style={styles.headerTitle}>Account</Text>
             </View>
 
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* §6.2 — Profile card (gradient balance-card style) */}
+                <Animated.View
+                    style={{ opacity: cardAnim, transform: [{ translateY: cardY }], marginBottom: 8 }}
                 >
-                    {/* §6.2 — Profile card (gradient balance-card style) */}
-                    <Animated.View
-                        style={{ opacity: cardAnim, transform: [{ translateY: cardY }], marginBottom: 8 }}
-                    >
-                        {googleState.isSignedIn ? (
-                            <LinearGradient
-                                colors={[C.primaryDark, C.primaryMid, C.primary]}
-                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                style={styles.profileCard}
-                            >
-                                <View style={styles.profileCardTop}>
-                                    <View style={styles.avatarCircle}>
-                                        <Text style={styles.avatarText}>{getInitials()}</Text>
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        {googleState.userName
-                                            ? <Text style={styles.profileName} numberOfLines={1}>{googleState.userName}</Text>
-                                            : null
-                                        }
-                                        <Text style={styles.profileEmail} numberOfLines={1}>{googleState.userEmail}</Text>
-                                    </View>
-                                    <View style={styles.quotaPill}>
-                                        <Text style={styles.quotaAmount}>{quotaBalance}</Text>
-                                        <Text style={styles.quotaLabel}>credits</Text>
-                                    </View>
+                    {googleState.isSignedIn ? (
+                        <LinearGradient
+                            colors={[C.primaryDark, C.primaryMid, C.primary]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                            style={styles.profileCard}
+                        >
+                            <View style={styles.profileCardTop}>
+                                <View style={styles.avatarCircle}>
+                                    <Text style={styles.avatarText}>{getInitials()}</Text>
                                 </View>
-                                <View style={styles.profileCardBottom}>
-                                    <View style={styles.connectedRow}>
-                                        <View style={styles.connectedDot} />
-                                        <Text style={styles.connectedText}>Connected to Gmail</Text>
-                                    </View>
-                                    <TouchableOpacity
-                                        style={styles.addCreditsBtn}
-                                        onPress={handleAddQuota}
-                                        activeOpacity={0.75}
-                                        accessibilityLabel="Buy Credits"
-                                    >
-                                        <Text style={styles.addCreditsText}>Buy Credits</Text>
-                                    </TouchableOpacity>
+                                <View style={{ flex: 1 }}>
+                                    {googleState.userName
+                                        ? <Text style={styles.profileName} numberOfLines={1}>{googleState.userName}</Text>
+                                        : null
+                                    }
+                                    <Text style={styles.profileEmail} numberOfLines={1}>{googleState.userEmail}</Text>
                                 </View>
-                            </LinearGradient>
-                        ) : (
-                            <View style={styles.profileCardDisconnected}>
-                                <View style={styles.profileCardTop}>
-                                    <View style={[styles.avatarCircle, styles.avatarDisconnected]}>
-                                        <User size={24} color={C.textSecondary} strokeWidth={1.5} />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.profileName, { color: C.textPrimary }]}>Not signed in</Text>
-                                        <Text style={[styles.profileEmail, { color: C.textSecondary }]}>Connect Google to send emails</Text>
-                                    </View>
+                                <View style={styles.quotaPill}>
+                                    <Text style={styles.quotaAmount}>{quotaBalance}</Text>
+                                    <Text style={styles.quotaLabel}>credits</Text>
                                 </View>
                             </View>
-                        )}
-                    </Animated.View>
+                            <View style={styles.profileCardBottom}>
+                                <View style={styles.connectedRow}>
+                                    <View style={styles.connectedDot} />
+                                    <Text style={styles.connectedText}>Connected to Gmail</Text>
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.addCreditsBtn}
+                                    onPress={handleAddQuota}
+                                    activeOpacity={0.75}
+                                    accessibilityLabel="Buy Credits"
+                                >
+                                    <Text style={styles.addCreditsText}>Buy Credits</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    ) : (
+                        <View style={styles.profileCardDisconnected}>
+                            <View style={styles.profileCardTop}>
+                                <View style={[styles.avatarCircle, styles.avatarDisconnected]}>
+                                    <User size={24} color={C.textSecondary} strokeWidth={1.5} />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.profileName, { color: C.textPrimary }]}>Not signed in</Text>
+                                    <Text style={[styles.profileEmail, { color: C.textSecondary }]}>Connect Google to send emails</Text>
+                                </View>
+                            </View>
+                        </View>
+                    )}
+                </Animated.View>
 
-                    {/* ── Account ── */}
-                    <SectionHeader label="Account" />
-                    <Card>
-                        {googleState.isSignedIn ? (
-                            <SettingRow
-                                label="Gmail"
-                                value={googleState.userEmail}
-                                icon={User}
-                                last
-                                rightNode={
-                                    <View style={styles.connectedBadge}>
-                                        <View style={styles.connectedBadgeDot} />
-                                        <Text style={styles.connectedBadgeText}>Connected</Text>
-                                    </View>
-                                }
-                            />
-                        ) : (
-                            <TouchableOpacity
-                                style={styles.googleSignInRow}
-                                onPress={handleGoogleSignIn}
-                                disabled={signingIn}
-                                activeOpacity={0.8}
-                            >
-                                {signingIn ? (
-                                    <ActivityIndicator size="small" color={C.primaryDark} />
-                                ) : (
-                                    <>
-                                        <View style={styles.googleIconBox}>
-                                            <Text style={styles.googleIconText}>G</Text>
-                                        </View>
-                                        <Text style={styles.googleSignInText}>Sign in with Google</Text>
-                                        <ChevronRight size={18} color={C.textSecondary} strokeWidth={1.5} />
-                                    </>
-                                )}
-                            </TouchableOpacity>
-                        )}
-                    </Card>
-
-                    {/* ── Outreach Profile ── */}
-                    <SectionHeader label="Outreach Profile" />
-                    <Card>
+                {/* ── Account ── */}
+                <SectionHeader label="Account" />
+                <Card>
+                    {googleState.isSignedIn ? (
                         <SettingRow
-                            label="My Goal"
-                            value={currentRole ? currentRole.label : 'Not set'}
-                            onPress={() => setShowRolePicker(true)}
+                            label="Gmail"
+                            value={googleState.userEmail}
+                            icon={User}
                             last
+                            rightNode={
+                                <View style={styles.connectedBadge}>
+                                    <View style={styles.connectedBadgeDot} />
+                                    <Text style={styles.connectedBadgeText}>Connected</Text>
+                                </View>
+                            }
                         />
-                    </Card>
-
-                    {/* ── Content ── */}
-                    <SectionHeader label="Content" />
-                    <Card>
-                        {/* Email Templates → separate screen */}
-                        <SettingRow
-                            label="Email Templates"
-                            value="Manage your templates"
-                            icon={FileText}
-                            onPress={() => router.push('/templates')}
-                            last
-                        />
-                    </Card>
-
-                    {/* ── Sign Out ── */}
-                    {googleState.isSignedIn && (
+                    ) : (
                         <TouchableOpacity
-                            style={styles.signOutBtn}
-                            onPress={handleSignOut}
-                            activeOpacity={0.7}
-                            accessibilityLabel="Sign out"
+                            style={styles.googleSignInRow}
+                            onPress={handleGoogleSignIn}
+                            disabled={signingIn}
+                            activeOpacity={0.8}
                         >
-                            <LogOut size={16} color={C.textSecondary} strokeWidth={1.5} />
-                            <Text style={styles.signOutBtnText}>Sign Out</Text>
+                            {signingIn ? (
+                                <ActivityIndicator size="small" color={C.primaryDark} />
+                            ) : (
+                                <>
+                                    <View style={styles.googleIconBox}>
+                                        <Text style={styles.googleIconText}>G</Text>
+                                    </View>
+                                    <Text style={styles.googleSignInText}>Sign in with Google</Text>
+                                    <ChevronRight size={18} color={C.textSecondary} strokeWidth={1.5} />
+                                </>
+                            )}
                         </TouchableOpacity>
                     )}
+                </Card>
 
-                    <View style={{ height: 32 }} />
-                </ScrollView>
+                {/* ── Outreach Profile ── */}
+                <SectionHeader label="Outreach Profile" />
+                <Card>
+                    <SettingRow
+                        label="My Goal"
+                        value={currentRole ? currentRole.label : 'Not set'}
+                        onPress={() => setShowRolePicker(true)}
+                        last
+                    />
+                </Card>
+
+                {/* ── Content ── */}
+                <SectionHeader label="Content" />
+                <Card>
+                    {/* Email Templates → separate screen */}
+                    <SettingRow
+                        label="Email Templates"
+                        value="Manage your templates"
+                        icon={FileText}
+                        onPress={() => router.push('/templates')}
+                        last
+                    />
+                </Card>
+
+                {/* ── Sign Out ── */}
+                {googleState.isSignedIn && (
+                    <TouchableOpacity
+                        style={styles.signOutBtn}
+                        onPress={handleSignOut}
+                        activeOpacity={0.7}
+                        accessibilityLabel="Sign out"
+                    >
+                        <LogOut size={16} color={C.textSecondary} strokeWidth={1.5} />
+                        <Text style={styles.signOutBtnText}>Sign Out</Text>
+                    </TouchableOpacity>
+                )}
+
+                <View style={{ height: 32 }} />
+            </ScrollView>
 
             <RolePickerModal
                 visible={showRolePicker}
@@ -509,7 +503,7 @@ const modalStyles = StyleSheet.create({
         backgroundColor: C.surfaceLight,
         alignSelf: 'center', marginTop: 12, marginBottom: 20,
     },
-    title:    { fontSize: 20, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.4 },
+    title: { fontSize: 20, fontWeight: '700', color: C.textPrimary, letterSpacing: -0.4 },
     subtitle: { fontSize: 13, marginTop: 6, color: C.textSecondary, lineHeight: 18 },
 
     roleRow: {
@@ -532,9 +526,9 @@ const modalStyles = StyleSheet.create({
     roleIconBoxActive: { backgroundColor: C.accent },
     roleIconText: { fontSize: 20 },
 
-    roleLabel:       { fontSize: 15, fontWeight: '600', color: C.textPrimary },
+    roleLabel: { fontSize: 15, fontWeight: '600', color: C.textPrimary },
     roleLabelActive: { color: C.primaryDark },
-    roleDesc:        { fontSize: 12, marginTop: 3, color: C.textSecondary, lineHeight: 16 },
+    roleDesc: { fontSize: 12, marginTop: 3, color: C.textSecondary, lineHeight: 16 },
 
     radioEmpty: {
         width: 22, height: 22, borderRadius: 11,
@@ -571,7 +565,7 @@ const styles = StyleSheet.create({
     },
     avatarDisconnected: { backgroundColor: C.white, borderColor: C.surfaceLight },
     avatarText: { color: C.primaryDark, fontSize: 18, fontWeight: '800' },
-    profileName:  { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,1)', letterSpacing: -0.2 },
+    profileName: { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,1)', letterSpacing: -0.2 },
     profileEmail: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
     quotaPill: {
         borderRadius: 9999, backgroundColor: C.accentLight,
@@ -579,7 +573,7 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: 'rgba(176,236,112,0.3)',
     },
     quotaAmount: { fontSize: 20, fontWeight: '800', color: C.accent, lineHeight: 24 },
-    quotaLabel:  { fontSize: 10, fontWeight: '600', color: C.accent, letterSpacing: 0.3 },
+    quotaLabel: { fontSize: 10, fontWeight: '600', color: C.accent, letterSpacing: 0.3 },
     profileCardBottom: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     },
