@@ -15,6 +15,14 @@ import { VerifyPurchaseDto } from './dto/verify-purchase.dto';
 // actual prices are set and enforced by Google Play Console.
 export const PRODUCTS = [
   {
+    id: 'test_pack',
+    name: 'Test Pack',
+    credits: 10,
+    description: '10 contact searches',
+    price: '₹1',
+    popular: false,
+  },
+  {
     id: 'quota_starter_50',
     name: 'Starter Pack',
     credits: 50,

@@ -12,6 +12,7 @@
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://10.0.2.2:3001';
 
 export const PRODUCT_SKUS = [
+  'test_pack',
   'quota_starter_50',
   'quota_pro_150',
   'quota_growth_500',
@@ -49,7 +50,7 @@ export async function verifyPurchaseWithBackend(idToken, { purchaseToken, produc
 export async function initIAP() {
   console.warn('[IAP Web] Google Play Billing is not supported on the web. Using fallback UI.');
   // Return an empty array so the UI just falls back to default QUOTA_PACKS static pricing
-  return []; 
+  return [];
 }
 
 export async function endIAP() {

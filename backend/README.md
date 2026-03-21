@@ -54,6 +54,7 @@ Go to Play Console → Your App → Monetization → Products → In-app product
 
 | Product ID | Name | Price |
 |---|---|---|
+| `test_pack` | Test Pack (10 Credits) | ₹1 |
 | `quota_starter_50` | Starter Pack (50 Credits) | ₹99 |
 | `quota_pro_150` | Pro Pack (150 Credits) | ₹249 |
 | `quota_growth_500` | Growth Pack (500 Credits) | ₹699 |

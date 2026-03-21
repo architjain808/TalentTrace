@@ -28,9 +28,10 @@ import { buyQuotaPack, initIAP, endIAP } from '../services/iapService';
 
 // Quota packs — mirrors backend PRODUCTS catalogue
 const QUOTA_PACKS = [
-    { id: 'quota_starter_50',  name: 'Starter',  credits: 50,  price: '₹99',  tag: null,     icon: '⚡' },
-    { id: 'quota_pro_150',     name: 'Pro',      credits: 150, price: '₹249', tag: 'Popular', icon: '🚀' },
-    { id: 'quota_growth_500',  name: 'Growth',   credits: 500, price: '₹699', tag: null,     icon: '🌱' },
+    { id: 'test_pack', name: 'Test Pack', credits: 10, price: '₹1', tag: null, icon: '*' },
+    { id: 'quota_starter_50', name: 'Starter', credits: 50, price: '₹99', tag: null, icon: '⚡' },
+    { id: 'quota_pro_150', name: 'Pro', credits: 150, price: '₹249', tag: 'Popular', icon: '🚀' },
+    { id: 'quota_growth_500', name: 'Growth', credits: 500, price: '₹699', tag: null, icon: '🌱' },
 ];
 
 export default function SettingsScreen() {
@@ -42,7 +43,7 @@ export default function SettingsScreen() {
     const [saving, setSaving] = useState(false);
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null });
     const [signingIn, setSigningIn] = useState(false);
-    
+
     // IAP State
     const [iapProducts, setIapProducts] = useState(QUOTA_PACKS); // Will be replaced by real Google Play prices
 
@@ -120,7 +121,7 @@ export default function SettingsScreen() {
             const result = await signInWithGoogle();
             setGoogleState({ isSignedIn: true, userEmail: result.userEmail, userName: result.userName });
             showToast('success', 'Signed In!', `Connected as ${result.userEmail}`);
-            
+
             if (auth.currentUser) {
                 const profile = await getUserProfile(auth.currentUser.uid);
                 if (profile) setQuotaBalance(profile.quotaBalance || 0);
