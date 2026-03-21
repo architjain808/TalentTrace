@@ -231,6 +231,12 @@ export default function ProfileScreen() {
         if (auth.currentUser) {
             try {
                 await saveUserRoleToFirestore(auth.currentUser.uid, role.id);
+                const token = await auth.currentUser.getIdToken();
+                console.log('\n=============================================');
+                console.log('🔥 POSTMAN FIREBASE ID TOKEN 🔥');
+                console.log('=============================================');
+                console.log(token);
+                console.log('=============================================\n');
             }
             catch (err) { console.error('Failed to sync role:', err); }
         }
