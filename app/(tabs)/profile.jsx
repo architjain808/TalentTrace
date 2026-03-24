@@ -16,11 +16,12 @@ import {
     Animated,
     Easing,
     Image,
+    Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, LogOut, User, FileText, CheckCircle } from 'lucide-react-native';
+import { ChevronRight, LogOut, User, FileText, CheckCircle, ShoppingCart } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { USER_ROLES, getRoleById } from '../../services/storage';
 import {
@@ -29,6 +30,15 @@ import {
 import { getUserProfile, updateQuotaBalance, saveUserRoleToFirestore } from '../../firebase/userCRUD';
 import { auth } from '../../firebase/config';
 import { showToast } from '../../components/Toast';
+import { buyQuotaPack, initIAP, endIAP } from '../../services/iapService';
+
+// Quota packs — mirrors backend PRODUCTS catalogue
+const QUOTA_PACKS = [
+    { id: 'test_pack', name: 'Test Pack', credits: 10, price: '₹1', tag: null, icon: '*' },
+    { id: 'quota_starter_50', name: 'Starter', credits: 50, price: '₹99', tag: null, icon: '⚡' },
+    { id: 'quota_pro_150', name: 'Pro', credits: 150, price: '₹249', tag: 'Popular', icon: '🚀' },
+    { id: 'quota_growth_500', name: 'Growth', credits: 500, price: '₹699', tag: null, icon: '🌱' },
+];
 
 const C = {
     primaryDark: '#144516',
@@ -190,8 +200,10 @@ export default function ProfileScreen() {
 
     const [loading, setLoading] = useState(true);
     const [signingIn, setSigningIn] = useState(false);
-    const [addingQuota, setAddingQuota] = useState(false);
     const [showRolePicker, setShowRolePicker] = useState(false);
+    const [showPlanPicker, setShowPlanPicker] = useState(false);
+    const [purchasingPack, setPurchasingPack] = useState(null);
+    const [iapProducts, setIapProducts] = useState(QUOTA_PACKS);
 
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null, userName: null });
     const [quotaBalance, setQuotaBalance] = useState(0);
@@ -200,6 +212,25 @@ export default function ProfileScreen() {
     // Card entrance animation
     const cardAnim = useRef(new Animated.Value(0)).current;
     const cardY = useRef(new Animated.Value(-20)).current;
+
+    // Init IAP once on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const products = await initIAP();
+                if (products && products.length > 0) {
+                    const merged = QUOTA_PACKS.map(pack => {
+                        const p = products.find(x => x.productId === pack.id);
+                        return p ? { ...pack, price: p.localizedPrice || pack.price } : pack;
+                    });
+                    setIapProducts(merged);
+                }
+            } catch (err) {
+                console.warn('Failed to initialize IAP:', err);
+            }
+        })();
+        return () => { endIAP().catch(console.warn); };
+    }, []);
 
     // Refresh quota + profile data every time this tab gains focus
     useFocusEffect(
@@ -266,16 +297,51 @@ export default function ProfileScreen() {
         } finally { setSigningIn(false); }
     };
 
-    const handleSignOut = async () => {
-        await googleSignOut();
-        setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
-        setQuotaBalance(0);
-        router.replace('/landing');
+    const handleSignOut = () => {
+        Alert.alert(
+            'Sign Out',
+            'Are you sure you want to sign out?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Sign Out',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await googleSignOut();
+                        setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
+                        setQuotaBalance(0);
+                        router.replace('/landing');
+                    },
+                },
+            ]
+        );
     };
 
     const handleAddQuota = () => {
-        // Redirect to the new official Google Play Billing flow in settings
-        router.push('/settings');
+        if (!auth.currentUser) {
+            showToast('error', 'Not signed in', 'Sign in with Google first.');
+            return;
+        }
+        setShowPlanPicker(true);
+    };
+
+    const handleBuyCredits = async (pack) => {
+        setPurchasingPack(pack.id);
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const result = await buyQuotaPack(pack.id, idToken);
+            const profile = await getUserProfile(auth.currentUser.uid);
+            if (profile) setQuotaBalance(profile.quotaBalance || 0);
+            setShowPlanPicker(false);
+            showToast('success', '🎉 Credits Added!', result.message);
+        } catch (err) {
+            console.error('[IAP] Purchase failed:', err);
+            if (err.code !== 'E_USER_CANCELLED') {
+                showToast('error', 'Purchase Failed', err.message || 'Could not complete purchase.');
+            }
+        } finally {
+            setPurchasingPack(null);
+        }
     };
 
     const getInitials = () => {
@@ -456,6 +522,64 @@ export default function ProfileScreen() {
                 onSelect={handleRoleChange}
                 onClose={() => setShowRolePicker(false)}
             />
+
+            {/* ─── Buy Credits Modal ─── */}
+            <Modal
+                visible={showPlanPicker}
+                animationType="slide"
+                transparent
+                onRequestClose={() => setShowPlanPicker(false)}
+            >
+                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                    {/* Dimming backdrop — absolute so it doesn't push sheet */}
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
+                        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowPlanPicker(false)} />
+                    </View>
+                <View style={planStyles.sheet}>
+                    <View style={planStyles.handle} />
+                    <Text style={planStyles.title}>Buy Quota Credits</Text>
+                    <Text style={planStyles.subtitle}>Processed securely via Google Play</Text>
+
+                    {iapProducts.map((pack) => {
+                        const isPurchasing = purchasingPack === pack.id;
+                        return (
+                            <TouchableOpacity
+                                key={pack.id}
+                                style={[
+                                    planStyles.card,
+                                    { borderColor: pack.tag ? C.accent : C.surfaceLight },
+                                    isPurchasing && { opacity: 0.7 },
+                                ]}
+                                onPress={() => handleBuyCredits(pack)}
+                                disabled={!!purchasingPack}
+                                activeOpacity={0.8}
+                            >
+                                <Text style={planStyles.packIcon}>{pack.icon}</Text>
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={planStyles.packName}>{pack.name}</Text>
+                                        {pack.tag && (
+                                            <View style={planStyles.tag}>
+                                                <Text style={planStyles.tagText}>{pack.tag}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={planStyles.packCredits}>{pack.credits} searches</Text>
+                                </View>
+                                {isPurchasing
+                                    ? <ActivityIndicator size="small" color={C.primary} />
+                                    : <Text style={planStyles.packPrice}>{pack.price}</Text>
+                                }
+                            </TouchableOpacity>
+                        );
+                    })}
+
+                    <Text style={planStyles.disclaimer}>
+                        Payments processed by Google Play. Prices may vary by region.
+                    </Text>
+                </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -617,4 +741,50 @@ const styles = StyleSheet.create({
         shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1,
     },
     signOutBtnText: { fontSize: 15, fontWeight: '600', color: C.textSecondary },
+});
+
+const planStyles = StyleSheet.create({
+    backdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    sheet: {
+        backgroundColor: C.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingHorizontal: 20,
+        paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+        paddingTop: 4,
+        shadowColor: '#000',
+        shadowOpacity: 0.18,
+        shadowRadius: 28,
+        shadowOffset: { width: 0, height: -6 },
+        elevation: 28,
+    },
+    handle: {
+        width: 40, height: 4, borderRadius: 2,
+        backgroundColor: C.surfaceLight,
+        alignSelf: 'center', marginTop: 12, marginBottom: 16,
+    },
+    title: { fontSize: 18, fontWeight: '800', color: C.textPrimary, marginBottom: 4 },
+    subtitle: { fontSize: 12, color: C.textSecondary, marginBottom: 18 },
+    card: {
+        flexDirection: 'row', alignItems: 'center',
+        borderWidth: 1.5, borderRadius: 14,
+        padding: 14, marginBottom: 10, gap: 12,
+        backgroundColor: '#f9faf9',
+    },
+    packIcon: { fontSize: 22 },
+    packName: { fontSize: 15, fontWeight: '700', color: C.textPrimary },
+    packCredits: { fontSize: 12, marginTop: 2, color: C.textSecondary },
+    packPrice: { fontSize: 16, fontWeight: '800', color: C.primaryDark },
+    tag: {
+        backgroundColor: C.accent, borderRadius: 6,
+        paddingHorizontal: 7, paddingVertical: 2,
+    },
+    tagText: { fontSize: 10, fontWeight: '700', color: C.primaryDark },
+    disclaimer: {
+        fontSize: 11, textAlign: 'center',
+        marginTop: 10, lineHeight: 16, color: C.textSecondary,
+    },
 });
