@@ -16,7 +16,6 @@ import {
     Animated,
     Easing,
     Image,
-    Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -92,7 +91,7 @@ function Card({ children }) {
 }
 
 // Role picker bottom sheet modal — proper slide-up with animated backdrop
-function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
+function RolePickerModal({ visible, currentRoleId, isLoading, onSelect, onClose }) {
     const slideAnim = useRef(new Animated.Value(400)).current;
     const backdropAnim = useRef(new Animated.Value(0)).current;
 
@@ -131,7 +130,7 @@ function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
                         { backgroundColor: 'rgba(0,0,0,0.45)', opacity: backdropAnim },
                     ]}
                 >
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={onClose} />
+                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={isLoading ? undefined : onClose} />
                 </Animated.View>
 
                 {/* Sheet slides up */}
@@ -149,6 +148,7 @@ function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
                     >
                         {USER_ROLES.map((role, i) => {
                             const isActive = currentRoleId === role.id;
+                            const isThisItemLoading = isLoading && isActive;
                             return (
                                 <TouchableOpacity
                                     key={role.id}
@@ -156,9 +156,11 @@ function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
                                         modalStyles.roleRow,
                                         i === USER_ROLES.length - 1 && modalStyles.roleRowLast,
                                         isActive && modalStyles.roleRowActive,
+                                        isLoading && { opacity: 0.6 }
                                     ]}
                                     onPress={() => onSelect(role)}
                                     activeOpacity={0.65}
+                                    disabled={isLoading}
                                     accessibilityLabel={role.label}
                                     accessibilityRole="radio"
                                     accessibilityState={{ checked: isActive }}
@@ -176,11 +178,14 @@ function RolePickerModal({ visible, currentRoleId, onSelect, onClose }) {
                                         <Text style={modalStyles.roleDesc}>{role.description}</Text>
                                     </View>
 
-                                    {/* Selected indicator vs empty radio */}
-                                    {isActive
-                                        ? <CheckCircle size={22} color={C.primary} strokeWidth={2} fill={C.accent} />
-                                        : <View style={modalStyles.radioEmpty} />
-                                    }
+                                    {/* Selected indicator vs empty radio vs loading */}
+                                    {isThisItemLoading ? (
+                                        <ActivityIndicator size="small" color={C.primaryDark} />
+                                    ) : isActive ? (
+                                        <CheckCircle size={22} color={C.primary} strokeWidth={2} fill={C.accent} />
+                                    ) : (
+                                        <View style={modalStyles.radioEmpty} />
+                                    )}
                                 </TouchableOpacity>
                             );
                         })}
@@ -201,7 +206,9 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [signingIn, setSigningIn] = useState(false);
     const [showRolePicker, setShowRolePicker] = useState(false);
+    const [updatingRole, setUpdatingRole] = useState(false);
     const [showPlanPicker, setShowPlanPicker] = useState(false);
+    const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
     const [purchasingPack, setPurchasingPack] = useState(null);
     const [iapProducts, setIapProducts] = useState(QUOTA_PACKS);
 
@@ -259,19 +266,23 @@ export default function ProfileScreen() {
     }, []);
 
     const handleRoleChange = async (role) => {
+        // Optimistically set the role ID locally for UI selection
+        const prevRole = currentRole;
+        setCurrentRole(role);
+        setUpdatingRole(true);
+
         if (auth.currentUser) {
             try {
                 await saveUserRoleToFirestore(auth.currentUser.uid, role.id);
-                const token = await auth.currentUser.getIdToken();
-                console.log('\n=============================================');
-                console.log('🔥 POSTMAN FIREBASE ID TOKEN 🔥');
-                console.log('=============================================');
-                console.log(token);
-                console.log('=============================================\n');
+            } catch (err) {
+                console.error('Failed to sync role:', err);
+                // Roll back on error
+                setCurrentRole(prevRole);
+                showToast('error', 'Update Failed', 'Could not save profile change.');
             }
-            catch (err) { console.error('Failed to sync role:', err); }
         }
-        setCurrentRole(role);
+
+        setUpdatingRole(false);
         setShowRolePicker(false);
         showToast('success', 'Profile Updated', `Switched to: ${role.label}`);
     };
@@ -298,23 +309,15 @@ export default function ProfileScreen() {
     };
 
     const handleSignOut = () => {
-        Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Sign Out',
-                    style: 'destructive',
-                    onPress: async () => {
-                        await googleSignOut();
-                        setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
-                        setQuotaBalance(0);
-                        router.replace('/landing');
-                    },
-                },
-            ]
-        );
+        setShowSignOutConfirm(true);
+    };
+
+    const confirmSignOut = async () => {
+        setShowSignOutConfirm(false);
+        await googleSignOut();
+        setGoogleState({ isSignedIn: false, userEmail: null, userName: null });
+        setQuotaBalance(0);
+        router.replace('/landing');
     };
 
     const handleAddQuota = () => {
@@ -519,9 +522,41 @@ export default function ProfileScreen() {
             <RolePickerModal
                 visible={showRolePicker}
                 currentRoleId={currentRole?.id}
+                isLoading={updatingRole}
                 onSelect={handleRoleChange}
                 onClose={() => setShowRolePicker(false)}
             />
+
+            {/* ─── Sign Out Confirmation Modal ─── */}
+            <Modal
+                visible={showSignOutConfirm}
+                animationType="fade"
+                transparent
+                onRequestClose={() => setShowSignOutConfirm(false)}
+            >
+                <View style={confirmStyles.overlay}>
+                    <View style={confirmStyles.dialog}>
+                        <Text style={confirmStyles.title}>Sign Out</Text>
+                        <Text style={confirmStyles.message}>Are you sure you want to sign out?</Text>
+                        <View style={confirmStyles.actions}>
+                            <TouchableOpacity
+                                style={[confirmStyles.btn, confirmStyles.btnCancel]}
+                                onPress={() => setShowSignOutConfirm(false)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={confirmStyles.btnCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[confirmStyles.btn, confirmStyles.btnDanger]}
+                                onPress={confirmSignOut}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={confirmStyles.btnDangerText}>Sign Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* ─── Buy Credits Modal ─── */}
             <Modal
@@ -535,49 +570,49 @@ export default function ProfileScreen() {
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]}>
                         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowPlanPicker(false)} />
                     </View>
-                <View style={planStyles.sheet}>
-                    <View style={planStyles.handle} />
-                    <Text style={planStyles.title}>Buy Quota Credits</Text>
-                    <Text style={planStyles.subtitle}>Processed securely via Google Play</Text>
+                    <View style={planStyles.sheet}>
+                        <View style={planStyles.handle} />
+                        <Text style={planStyles.title}>Buy Quota Credits</Text>
+                        <Text style={planStyles.subtitle}>Processed securely via Google Play</Text>
 
-                    {iapProducts.map((pack) => {
-                        const isPurchasing = purchasingPack === pack.id;
-                        return (
-                            <TouchableOpacity
-                                key={pack.id}
-                                style={[
-                                    planStyles.card,
-                                    { borderColor: pack.tag ? C.accent : C.surfaceLight },
-                                    isPurchasing && { opacity: 0.7 },
-                                ]}
-                                onPress={() => handleBuyCredits(pack)}
-                                disabled={!!purchasingPack}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={planStyles.packIcon}>{pack.icon}</Text>
-                                <View style={{ flex: 1 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={planStyles.packName}>{pack.name}</Text>
-                                        {pack.tag && (
-                                            <View style={planStyles.tag}>
-                                                <Text style={planStyles.tagText}>{pack.tag}</Text>
-                                            </View>
-                                        )}
+                        {iapProducts.map((pack) => {
+                            const isPurchasing = purchasingPack === pack.id;
+                            return (
+                                <TouchableOpacity
+                                    key={pack.id}
+                                    style={[
+                                        planStyles.card,
+                                        { borderColor: pack.tag ? C.accent : C.surfaceLight },
+                                        isPurchasing && { opacity: 0.7 },
+                                    ]}
+                                    onPress={() => handleBuyCredits(pack)}
+                                    disabled={!!purchasingPack}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={planStyles.packIcon}>{pack.icon}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={planStyles.packName}>{pack.name}</Text>
+                                            {pack.tag && (
+                                                <View style={planStyles.tag}>
+                                                    <Text style={planStyles.tagText}>{pack.tag}</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={planStyles.packCredits}>{pack.credits} searches</Text>
                                     </View>
-                                    <Text style={planStyles.packCredits}>{pack.credits} searches</Text>
-                                </View>
-                                {isPurchasing
-                                    ? <ActivityIndicator size="small" color={C.primary} />
-                                    : <Text style={planStyles.packPrice}>{pack.price}</Text>
-                                }
-                            </TouchableOpacity>
-                        );
-                    })}
+                                    {isPurchasing
+                                        ? <ActivityIndicator size="small" color={C.primary} />
+                                        : <Text style={planStyles.packPrice}>{pack.price}</Text>
+                                    }
+                                </TouchableOpacity>
+                            );
+                        })}
 
-                    <Text style={planStyles.disclaimer}>
-                        Payments processed by Google Play. Prices may vary by region.
-                    </Text>
-                </View>
+                        <Text style={planStyles.disclaimer}>
+                            Payments processed by Google Play. Prices may vary by region.
+                        </Text>
+                    </View>
                 </View>
             </Modal>
         </View>
@@ -786,5 +821,65 @@ const planStyles = StyleSheet.create({
     disclaimer: {
         fontSize: 11, textAlign: 'center',
         marginTop: 10, lineHeight: 16, color: C.textSecondary,
+    },
+});
+
+const confirmStyles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+    },
+    dialog: {
+        width: '100%',
+        backgroundColor: C.white,
+        borderRadius: 20,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 20,
+    },
+    title: {
+        fontSize: 17,
+        fontWeight: '700',
+        color: C.textPrimary,
+        marginBottom: 8,
+    },
+    message: {
+        fontSize: 14,
+        color: C.textSecondary,
+        lineHeight: 20,
+        marginBottom: 24,
+    },
+    actions: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    btn: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    btnCancel: {
+        backgroundColor: C.surfaceLight,
+    },
+    btnCancelText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: C.textPrimary,
+    },
+    btnDanger: {
+        backgroundColor: C.danger,
+    },
+    btnDangerText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: C.white,
     },
 });
