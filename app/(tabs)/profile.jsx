@@ -33,7 +33,7 @@ import { buyQuotaPack, initIAP, endIAP } from '../../services/iapService';
 
 // Quota packs — mirrors backend PRODUCTS catalogue
 const QUOTA_PACKS = [
-    { id: 'test_pack', name: 'Test Pack', credits: 10, price: '₹1', tag: null, icon: '*' },
+    { id: 'test-pack', name: 'Test Pack', credits: 10, price: '₹1', tag: null, icon: '*' },
     { id: 'quota_starter_50', name: 'Starter', credits: 50, price: '₹99', tag: null, icon: '⚡' },
     { id: 'quota_pro_150', name: 'Pro', credits: 150, price: '₹249', tag: 'Popular', icon: '🚀' },
     { id: 'quota_growth_500', name: 'Growth', credits: 500, price: '₹699', tag: null, icon: '🌱' },

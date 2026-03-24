@@ -21,7 +21,7 @@ const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://10.0.2.2:3001
 
 // Match these to the Product IDs created in Google Play Console
 export const PRODUCT_SKUS = [
-  'test_pack',
+  'test-pack',
   'quota_starter_50',
   'quota_pro_150',
   'quota_growth_500',
