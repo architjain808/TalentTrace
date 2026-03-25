@@ -210,7 +210,7 @@ export default function ProfileScreen() {
     const [showPlanPicker, setShowPlanPicker] = useState(false);
     const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
     const [purchasingPack, setPurchasingPack] = useState(null);
-    const [iapProducts, setIapProducts] = useState(QUOTA_PACKS);
+    const [iapProducts, setIapProducts] = useState(null); // null means still fetching from Google Play
 
     const [googleState, setGoogleState] = useState({ isSignedIn: false, userEmail: null, userName: null });
     const [quotaBalance, setQuotaBalance] = useState(0);
@@ -226,14 +226,20 @@ export default function ProfileScreen() {
             try {
                 const products = await initIAP();
                 if (products && products.length > 0) {
-                    const merged = QUOTA_PACKS.map(pack => {
+                    // ONLY keep products that are actually returned by Google Play and are available
+                    const availablePacks = QUOTA_PACKS.map(pack => {
                         const p = products.find(x => x.productId === pack.id);
-                        return p ? { ...pack, price: p.localizedPrice || pack.price } : pack;
-                    });
-                    setIapProducts(merged);
+                        return p ? { ...pack, price: p.localizedPrice || pack.price } : null;
+                    }).filter(Boolean);
+                    
+                    setIapProducts(availablePacks);
+                } else {
+                    // Google Play returned an empty array of products
+                    setIapProducts([]);
                 }
             } catch (err) {
                 console.warn('Failed to initialize IAP:', err);
+                setIapProducts([]); // Fallback to empty on error
             }
         })();
         return () => { endIAP().catch(console.warn); };
@@ -575,7 +581,19 @@ export default function ProfileScreen() {
                         <Text style={planStyles.title}>Buy Quota Credits</Text>
                         <Text style={planStyles.subtitle}>Processed securely via Google Play</Text>
 
-                        {iapProducts.map((pack) => {
+                        {iapProducts === null ? (
+                            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                                <ActivityIndicator size="small" color={C.primaryDark} />
+                                <Text style={{ marginTop: 12, color: C.textSecondary, fontSize: 13 }}>Connecting to Google Play...</Text>
+                            </View>
+                        ) : iapProducts.length === 0 ? (
+                            <View style={{ paddingVertical: 32, alignItems: 'center', backgroundColor: C.surfaceLight, borderRadius: 12, marginBottom: 16 }}>
+                                <ShoppingCart size={32} color={C.textSecondary} strokeWidth={1.5} />
+                                <Text style={{ marginTop: 12, color: C.textSecondary, fontSize: 13, textAlign: 'center', paddingHorizontal: 20, lineHeight: 18 }}>
+                                    No packages available from Google Play right now. Please check back later.
+                                </Text>
+                            </View>
+                        ) : iapProducts.map((pack) => {
                             const isPurchasing = purchasingPack === pack.id;
                             return (
                                 <TouchableOpacity
